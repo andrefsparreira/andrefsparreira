@@ -1,0 +1,156 @@
+{
+  "firma": "KS Consultores",
+  "fonte": "proposta-modelo.xlsx",
+  "capa": {
+    "tagline": "Apoiamos o sucesso dos nossos clientes\nAsseguramos a qualidade da informação financeira da sua empresa para suportar a tomada de decisão segura e informada"
+  },
+  "introducaoTitulo": "Introdução",
+  "introducao": "A KS Consultores contatou a {{cliente}}, para apresentação de uma proposta de serviços de assunção de responsabilidade de Contabilista Certificado e execução de todos os registos contabilísticos.\n\nServe a presente proposta para estabelecer o nosso entendimento sobre os serviços a prestar pela nossa empresa e apresentar os novos honorários referentes aos serviços que nos propomos realizar.",
+  "situacaoTitulo": "Situação da empresa a {{data}}",
+  "situacaoBulletsExemplo": [
+    "- O cliente é uma sociedade limitada e tem por objeto social as atividades de restaurantes tipo tradicional.",
+    "- Atualmente tem sócios com um capital social de 2,00 €.",
+    "- Não tem processamento salarial.",
+    "- Está inserida pelo regime geral de IRC e pelo regime trimestral de IVA.",
+    "- Espera obter um volume de negócios anual de 40.000,00 € e movimenta 1 conta bancária.",
+    "- Pretende um report trimestral personalizado, onde inclui um Balancete, uma Demontração de Resultados por Naturezas e um Balanço."
+  ],
+  "fecho": {
+    "titulo": "Procedimentos de fecho contabilísticos e fiscais",
+    "subtitulo": "Proposta",
+    "colunas": [
+      {
+        "titulo": "Obrigações Fiscais",
+        "itens": [
+          "Preparação e envio da declaração periódica e recapitulativa de IVA (se aplicável)",
+          "Validação e submissão de M22",
+          "Validação e submissão de IES",
+          "Emissão das guias mensais de Retenções na Fonte de IRS/IRC",
+          "Emissão das guias de pagamento de imposto referente a Pagamentos por Conta (PPC)"
+        ]
+      },
+      {
+        "titulo": "Outras Obrigações/Reportes",
+        "itens": [
+          "Preparação de Modelo 10",
+          "Submissão mensal do Modelo 30 (se aplicável)",
+          "Preparação da comunicação dos Modelos 25, 39, 44, 45, etc.",
+          "Pedidos de certidão de não dívida AT",
+          "Acompanhamento de Auditorias/Inspeções (se aplicável)",
+          "Envio do ficheiro SAFT - resumo obrigatório de faturação (opcional)"
+        ]
+      },
+      {
+        "titulo": "Outros Procedimentos de Fecho",
+        "itens": [
+          "Execução e revisão mensal dos lançamentos contabilísticos",
+          "Elaboração do Balanço e Demonstrações de Resultados",
+          "Elaboração e validação mensal das reconciliações bancárias",
+          "Identificação de possíveis poupanças fiscais (Benefícios Fiscais exemplo: Incentivo fiscal à valorização salarial, regime fiscal de incentivo à capitalização das empresas (ICE), etc.)",
+          "Envio Trimestral do Relatório de Gestão (opcional)"
+        ]
+      }
+    ]
+  },
+  "rh": {
+    "titulo": "Serviços de Recursos Humanos",
+    "subtitulo": "Proposta",
+    "colunas": [
+      {
+        "titulo": "Recolha de Informação",
+        "itens": [
+          "Recolha de elementos para preenchimento de fichas de funcionário e envio de info para o processamento salarial mensal",
+          "Análise de existência de apoios à contratação",
+          "Inserção/integração das variáveis mensais nos vencimentos para a emissão dos recibos"
+        ]
+      },
+      {
+        "titulo": "Preparação dos Recibos",
+        "itens": [
+          "Processamento de salários, subsídios, abonos e fechos de contas",
+          "Emissão dos recibos de vencimento e envio por e-mail para os funcionários (opcional)",
+          "Elaboração das declarações anuais de rendimentos dos trabalhadores dependentes (categoria A)",
+          "Integração dos salários na contabilidade"
+        ]
+      },
+      {
+        "titulo": "Procedimentos Fiscais",
+        "itens": [
+          "Registo e cancelamento de inscrições de trabalhadores",
+          "Envio dos mapas de contribuições da Segurança Social - via internet",
+          "Elaboração e envio das guias de IRS referente ao trabalho dependente (categoria A) - via internet",
+          "Preparação e submissão da declaração mensal de rendimentos (DMR)",
+          "Comunicação dos valores referentes a retenções na fonte do trabalho dependente",
+          "Pedido de certidões de não dívida",
+          "Outras obrigações relacionadas com o Relatório Único"
+        ]
+      }
+    ]
+  },
+  "limitacoes": {
+    "titulo": "Limitações do Âmbito Serviços",
+    "intro": "Os seguintes serviços não estão incluídos no âmbito desta proposta:",
+    "bullets": [
+      "- A nossa prestação de serviços não inclui a assunção de poderes ou competências de administração, gestão ou de representação da sociedade.",
+      "- Os nossos colaboradores não tomarão decisões que de alguma maneira obrigue a sociedade, sendo a nossa responsabilidade exclusivamente de carácter técnico perante a Gestão.",
+      "- Não fazem parte dos nossos serviços ou atribuições as funções de assessoria legal e elaboração de contratos de trabalho ou outros, responsabilidade exclusiva dos advogados.",
+      "- Não fazem parte dos nossos serviços ou atribuições as funções não constantes desta proposta, nomeadamente responder por problemas pendentes anteriores à nossa relação, ou posteriores à resolução do contrato."
+    ]
+  },
+  "honorarios": {
+    "titulo": "Honorários",
+    "intro": "Resumo Tabela dos Honorários e Serviços Correntes"
+  },
+  "ru": {
+    "titulo": "Relatório Único"
+  },
+  "nota": {
+    "titulo": "NOTA",
+    "bullets": [
+      "- Aos honorários apresentados acresce IVA à taxa legal em vigor.",
+      "- Os honorários serão revistos sempre que haja alteração significativa da atividade. A atualização anual base dos nossos honorários será de 10 euros+IVA/mês (ou com base na taxa de variação do Índice de Preços no Consumidor em vigor, caso esta seja de um aumento superior de 10 euros) podendo ser acrescida de outros valores consoante o crescimento da atividade da empresa e a envolvência da equipa KS Consultores.",
+      "- As faturas da KS Consultores são emitidas nos primeiros dias úteis de cada mês e deverão ser liquidadas no prazo de 30 dias."
+    ]
+  },
+  "aceitacao": "Ao assinar a aceitação da presente proposta confirma que concorda expressamente com os termos e condições descritos no presente documento.",
+  "assinatura": "A KS CONSULTORES",
+  "assinaturaNota": "(carimbo e assinatura)",
+  "clausulas": [
+    {
+      "titulo": "1. Objeto",
+      "corpo": "1.1 Pelo presente o Cliente contrata à KS CONSULTORES a prestação dos serviços constantes da Proposta anexa ao presente contrato, obrigando-se a KS CONSULTORES a prestar os mesmos nos termos da lei e do presente contrato. \n1.2 A responsabilidade da KS CONSULTORES no âmbito do presente contrato é exclusivamente perante o Cliente. A KS CONSULTORES obriga-se a utilizar a competência e zelo razoáveis na prestação dos seus serviços e a atuar sempre de boa-fé.\n1.3 O presente contrato é celebrado com a KS CONSULTORES e não diretamente com qualquer gerente, diretor, empregado ou consultor da mesma, não assumindo estes, qualquer responsabilidade legal, a título individual, perante o Cliente, pelo trabalho efetuado em nome da KS CONSULTORES. Toda a correspondência ou documentos enviados ao Cliente durante a execução do presente contrato será para todos os efeitos tratada como tendo sido enviada pela KS CONSULTORES. \n1.4 Os serviços a prestar pela KS CONSULTORES e respetivos honorários encontram-se descritos na Proposta, a qual constitui parte integrante do presente contrato. Quaisquer serviços adicionais que venham a ser contratados pelo Cliente à KS CONSULTORES reger-se-ão pelos termos e condições constantes do presente contrato.\n1.5 Os termos do presente contrato são vinculativos entre a KS CONSULTORES e o Cliente, podendo apenas ser alterados se mutuamente acordados por escrito, por pessoa com poderes de representação do Cliente e da KS CONSULTORES, respetivamente.\n1.6 Sem prejuízo de outros direitos e deveres que sejam atribuídos à KS CONSULTORES, o Cliente reconhece à KS CONSULTORES os direitos previstos no Estatuto da Ordem dos Contabilistas Certificados, cabendo-lhe, igualmente, o cumprimento escrupuloso dos deveres estabelecidos no mesmo diploma. \n1.7 Tendo em vista a boa execução dos serviços contratados, o Cliente declara que todas as informações e documentos que venha a entregar à KS CONSULTORES não contêm omissões e inexatidões, que sejam do seu conhecimento, constituindo nesta medida expressão fiel do seu património e das suas operações."
+    },
+    {
+      "titulo": "2. Preços e Condições de Pagamentos",
+      "corpo": "2.1 Como contrapartida pelos serviços prestados, o Cliente pagará à KS CONSULTORES os honorários constantes da Proposta, acrescidos de IVA à taxa legal em vigor.\n2.2 Salvo se expressamente previsto na Proposta, os honorários da KS CONSULTORES não incluem quaisquer despesas adicionais incorridas por conta do Cliente, sendo o pagamento das mesmas da responsabilidade do Cliente.\n2.3 Os honorários acordados entre as partes, que tenham um vencimento periódico e uma natureza fixa, devidos pelo Cliente à KS CONSULTORES, descritos na Proposta, serão pagos à KS CONSULTORES por transferência bancária, a contar da data de início de vigência do presente contrato. O pagamento será executado até ao dia trinta do mês corrente a que a prestação do serviço diga respeito, conforme fatura que atempadamente será processada e enviada para o Cliente.\n2.4 Todos os restantes pagamentos serão efetuados no prazo de trinta dias a contar da data da receção da respetiva fatura.\n2.5 Em caso de mora no pagamento dos honorários devidos, as partes acordam que poderá ser exigido o pagamento de juros de mora calculados à taxa legal em vigor para as obrigações comerciais, acrescidos de cinco pontos percentuais. \n2.6 Salvo estipulação em contrário, os valores acordados pelas partes serão atualizados anualmente, a partir do dia 1 de janeiro, de acordo com a taxa de inflação emitida pelo INE no início de cada ano com referência aos 12 meses do ano anterior. \n2.7 A KS CONSULTORES ou o CLIENTE poderão solicitar a revisão extraordinária dos seus honorários, caso o Cliente altere o local da prestação dos serviços da KS CONSULTORES, e/ou ocorra uma alteração significativa da sua atividade, complexidade e/ou do volume de operações, e amplitude da informação a prestar, em comparação com as inicialmente previstas. \n2.8 No caso de o contrato vir a cessar por qualquer motivo, a KS CONSULTORES terá direito de faturar ao Cliente o trabalho desenvolvido (ainda que o mesmo que não tenha sido concluído), de acordo com a base dos honorários acordados ou qualquer alteração contratual que haja sido posteriormente acordada. \n2.9 Podem as partes, por acordo escrito, aditar àqueles inicialmente previstos outros serviços a prestar pela KS CONSULTORES, mediante o estabelecimento de remuneração adicional. Na falta de acordo, os serviços prestados serão cobrados pela KS CONSULTORES aos preços usualmente praticados por esta para outros clientes.\n2.10 A KS CONSULTORES procederá à devolução de todos os documentos pertencentes ao Cliente que estejam na sua posse, conquanto se encontrem devidamente pagos todos os valores que lhe sejam devidos, ainda que de natureza litigiosa, sob pena de exercício do direito de retenção."
+    },
+    {
+      "titulo": "3. Responsabilidade",
+      "corpo": "3.1 Toda a informação que tenha sido ou venha a ser fornecida à KS CONSULTORES pelo Cliente ou por um seu representante, será considerada fidedigna a menos que a KS CONSULTORES tenha sido informada do contrário.\n3.2 Nenhuma das partes do presente contrato será responsável perante a outra parte pela indemnização de lucros cessantes, independentemente da causa.\n3.3 Nenhuma das partes será responsável perante a outra por qualquer falha ou atraso no cumprimento das suas obrigações ao abrigo do presente contrato, quando as referidas falhas ou atrasos resultem de situações fora do seu controlo razoável. \n3.4 A KS CONSULTORES responde pelos danos emergentes causados ao Cliente em resultado da deficiente execução dos seus serviços, ficando essa sua responsabilidade limitada, em qualquer circunstância, ao valor correspondente a três meses de honorários pagos e acordados entre as partes, renunciando o Cliente a qualquer reclamação pelos danos, independentemente da sua natureza, que excedam este limite de responsabilidade. \n3.5 Sem prejuízo da limitação prevista no número anterior, a responsabilidade máxima agregada da KS CONSULTORES perante o Cliente, resultante do contrato não poderá, em nenhuma circunstância exceder 10.000 €. \n3.6 Em qualquer circunstância, o Cliente só poderá reclamar e/ou demandar a KS CONSULTORES até ao limite do prazo de três meses, a contar da data em que o Cliente tenha tido conhecimento do facto gerador da sua responsabilidade, mantendo-se este prazo válido ainda que sobrevenha a resolução do presente contrato. \n3.7 Caso a KS CONSULTORES ou os seus Contabilistas Certificados sejam demandados pela Autoridade Tributária e Aduaneira ao abrigo da Lei Geral Tributária ou do Estatuto dos Contabilistas Certificados por eventual violação dos seus deveres legais, o Cliente facultar-lhe-ó toda a documentação e prestará todo o auxílio necessário à sua defesa e/ou do Contabilista Certificado responsável, ainda que o contrato já tenha cessado.\n3.8 O Cliente compromete-se a não apresentar qualquer ação relativamente aos serviços ao abrigo do contrato, contra qualquer gerente, diretor, empregado ou consultor da KS CONSULTORES, a título individual."
+    },
+    {
+      "titulo": "4. Execução dos Serviços",
+      "corpo": "4.1 O Cliente assume expressamente a obrigação de entregar atempadamente à KS CONSULTORES todos os documentos de suporte contabilístico referentes às entidades às quais a KS CONSULTORES presta os seus serviços, de forma a garantir que a referida contabilidade reflete, a todo o tempo, de forma verdadeira e fiel, a realidade patrimonial do Cliente. \n4.2 Em particular, o Cliente obriga-se a disponibilizar todos os documentos de suporte necessários à execução do contrato até ao dia 5 (cinco) do mês seguinte a que respeitarem ou, em alternativa, no dia seguinte à sua receção, desde que esta tenha ocorrido em data posterior ao referido dia 5 (cinco). \n4.3 Tendo sido contratado à KS CONSULTORES o serviço de processamento de salários, o Cliente assume a obrigação de disponibilizar todos os elementos necessários ao seu correto processamento até 5 (cinco) dias antes da data acordada entre as partes para o efeito. \n4.4 Nos casos em que o Cliente seja citado ou notificado pela Autoridade Tributária e Aduaneira, a citação ou notificação devem ser, de imediato, comunicadas à KS CONSULTORES, não se aplicando os prazos previstos nos números anteriores. \n4.5 O Cliente obriga-se especificamente a entregar à KS CONSULTORES todos os documentos e informações necessários ao cumprimento tempestivo das obrigações fiscais, nomeadamente de pagamento e/ou de natureza declarativa, com uma antecedência mínima de 5 (cinco dias) úteis relativamente ao prazo estabelecido por lei. \n4.6 O incumprimento dos prazos especificamente previstos nos números anteriores por parte do Cliente desonera a KS CONSULTORES do cumprimento atempado das suas obrigações, não lhe podendo ser imputada a responsabilidade por eventuais sanções que venham a ser aplicadas ao Cliente. \n4.7 O Cliente reconhece expressamente e aceita que a KS CONSULTORES poderá legitimamente recusar a entrega dos documentos de prestação de contas ou as declarações fiscais referentes ao Cliente, sempre que se encontrem em falta documentos de suporte contabilístico ou quando considere existirem situações que impedem que a contabilidade do Cliente reflita, de forma verdadeira e fiel, a sua realidade patrimonial.\n4.8 Na circunstância prevista no número anterior, o Cliente reconhece e aceita como legítima a recusa de apresentação das contas ou assinatura das declarações fiscais por parte da KS CONSULTORES, independentemente da mesma se encontrar prevista legalmente. \n4.9 Sem prejuízo dos requisitos legais aplicáveis aos documentos de suporte contabilístico, as comunicações entre as partes poderão ser efetuadas por qualquer forma escrita (correio eletrónico ou carta), pelo que no caso de existirem instruções ou comunicações verbais entre as partes, as mesmas só produzirão efeitos se confirmadas por qualquer um dos meios de comunicação escritos mencionados anteriormente."
+    },
+    {
+      "titulo": "5. Não contratação",
+      "corpo": "5.1 As Partes reconhecem que a KS CONSULTORES procederá à alocação de recursos humanos à prestação de serviços ao Cliente, de forma a criar uma relação de conhecimento dos seus recursos da realidade do Cliente, dando origem, dessa forma a uma relação profissional próxima entre os trabalhadores da KS CONSULTORES e do Cliente. Caso se preveja a prestação de serviços nas instalações do Cliente, essa relação profissional será tendencialmente mais profunda.\n5.2 As Partes reconhecem igualmente que a KS CONSULTORES dedica uma parte substancial do seu orçamento à formação os seus trabalhadores, por forma a assegurar a consistência das suas equipas e uma prestação de serviços de elevada qualidade aos seus Clientes. \n5.3 Tendo em consideração os pressupostos acordados entre as Partes nos números anteriores, o Cliente assume expressamente a obrigação de não contratar, direta ou indiretamente, quaisquer trabalhadores da KS CONSULTORES que lhe prestem ou hajam prestado serviços, sem o seu consentimento prévio e por escrito, quer durante a sua vigência, quer nos doze meses subsequentes à data da sua cessação por qualquer motivo. \n5.4 Em caso de violação da obrigação de não contratação de trabalhadores da KS CONSULTORES sem o seu consentimento prévio, as Partes acordam que o Cliente ficará obrigado ao pagamento de uma compensação não inferior a doze vezes o valor da remuneração mensal bruta do trabalhador em questão, sem prejuízo da possibilidade de reclamação, pela KS CONSULTORES, de valor superior, caso os danos causados pelo Cliente com a sua conduta venham apurar-se serem superiores àquele valor."
+    },
+    {
+      "titulo": "6. Duração do Contrato",
+      "corpo": "6.1 O contrato de prestação de serviços entre as partes tem a duração de um ano, com início na data de adjudicação da Proposta, renovando-se automaticamente, por períodos iguais, se não for denunciado, por qualquer uma das partes, mediante carta registada com aviso de receção, remetida nos 90 dias anteriores à data do seu termo inicial ou do termo de qualquer uma das suas renovações.\n6.2 A KS CONSULTORES e o Cliente acordam que a cessação unilateral do contrato por iniciativa do Cliente antes de terminado o seu prazo de vigência ou em violação do aviso prévio referido no ponto anterior, implica o pagamento do valor correspondente à média mensal dos valores faturados pela KS CONSULTORES ao Cliente até tal data, multiplicado pelo número de meses e que o contrato haveria de vigorar, a título de cláusula penal.\n6.3 No caso de prestação de serviços de contabilidade, caso a cessação do contrato ocorrer em qualquer um dos últimos três meses do exercício fiscal em curso, as partes acordam que esta só produzirá efeitos, por força do estabelecido nos Estatutos da Ordem dos Contabilistas Certificados, no fim do respetivo exercício, obrigando-se o Cliente a pagar os honorários correspondentes a esse período, incluindo os valores acordados para trabalhos de encerramento.\n6.4 A situação prevista no número anterior, não será aplicável caso a KS CONSULTORES venha a resolver o presente contrato por incumprimento do Cliente."
+    },
+    {
+      "titulo": "7. Legislação de Combate ao Branqueamento de Capitais",
+      "corpo": "7.1 A KS CONSULTORES encontra-se sujeita a determinados deveres de reporte obrigatório, manutenção de registos e procedimentos de identificação de clientes, no âmbito da legislação de combate ao branqueamento de capitais. A KS CONSULTORES efetuará todos os esforços para verificar a identificação do Cliente eletronicamente o que incluirá, se aplicável, a identificação da casa-mãe do Cliente, sócios ou acionistas maioritários, proprietários, beneficiários e administradores. A KS CONSULTORES poderá ter de solicitar ao Cliente determinados documentos de identificação de forma a garantir o cumprimento da legislação em causa. Sempre que esta informação seja solicitada, o Cliente obriga-se a facultar de imediato a mesma à KS CONSULTORES para que esta possa prosseguir com a prestação dos seus serviços.\n7.2 Em cumprimento da mencionada legislação, a KS CONSULTORES encontra-se igualmente obrigada ao dever de diligência relativamente a transações relativamente às quais não lhe seja fornecido o necessário suporte contabilístico, como sejam a identificação da transação ou conjunto de transações, identificação dos intervenientes, montantes envolvidos, meios de pagamento utilizados e proveniência dos fundos e/ou identificação dos bens transacionados. O Cliente obriga-se expressamente a prestar toda a informação que lhe seja solicitada com vista ao cumprimento do mencionado dever. \n7.3 A KS CONSULTORES não será responsável perante o Cliente ou qualquer outra parte, por quaisquer atrasos ou falhas no desempenho dos seus serviços que possam resultar da obrigação de cumprir com estes deveres."
+    },
+    {
+      "titulo": "8. Termos Gerais",
+      "corpo": "8.1 A KS CONSULTORES não presta aconselhamento jurídico. O Cliente deverá obter aconselhamento jurídico junto dos seus advogados. A KS CONSULTORES não será responsável pelo conteúdo de qualquer aconselhamento jurídico que seja obtido. \n8.2 O Cliente aceita expressamente que os dados pessoais fornecidos no âmbito do contrato com a KS CONSULTORES sejam tratados por esta para efeitos da prestação dos serviços nele compreendidos, assegurando a KS CONSULTORES que o tratamento de quaisquer dados pessoais será efetuado no estrito cumprimento da legislação aplicável em matéria de proteção de dados. \n8.3 As partes do presente contrato comprometem-se a fornecer toda a cooperação necessária de forma a garantir o cumprimento integral de todas as obrigações no âmbito da Legislação Anticorrupção.\n8.4 Todas as conversas e aconselhamentos prestados pela KS CONSULTORES ao Cliente bem como, toda a documentação fornecida pelo Cliente à KS CONSULTORES será mantida confidencial, a menos que o contrário seja acordado pelas partes e sem prejuízo das informações que, por inerência da prestação dos serviços, tenham carácter público. \n8.5 Caso uma ou mais das disposições do presente contrato seja considerada, ou se torne, nula ou inexequível por qualquer razão, tal parte será considerada excluída do mesmo. A validade ou exequibilidade das demais disposições do contrato não será de qualquer forma afetada ou prejudicada, em resultado dessa exclusão."
+    },
+    {
+      "titulo": "9. Lei Aplicável e Foro Competente",
+      "corpo": "9.1 Ao presente contrato aplicam-se as cláusulas que o regulam e, subsidiariamente, o previsto no Código Civil, em matéria de contrato de prestação de serviços, nos diversos códigos tributários e no Estatuto da Ordem dos Contabilistas Certificados, em tudo o que lhes seja aplicável.\n9.2 O presente contrato, e quaisquer questões ou litígios, decorrentes ou relacionados com o mesmo (de natureza contratual, extracontratual, contraordenacional, penal ou outra) serão regidos e interpretados de acordo com o direito português e submetidos à jurisdição exclusiva dos Tribunais da Comarca de Lisboa."
+    }
+  ]
+}
