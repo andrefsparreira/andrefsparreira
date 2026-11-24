@@ -137,6 +137,34 @@ export async function updateClient(formData: FormData) {
   redirect(`/clientes/${id}?ok=ficha`);
 }
 
+function imageMime(bytes: Buffer): string | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  return null;
+}
+
+export async function saveCoverPhoto(formData: FormData) {
+  await gate();
+  const clientId = Number(formData.get("clientId"));
+  const proposalId = Number(formData.get("proposalId"));
+  const back = Number.isInteger(proposalId) && proposalId > 0 ? `/propostas/${proposalId}` : `/clientes/${clientId}`;
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) redirect(`${back}?erro=foto`);
+  if (file.size > 4 * 1024 * 1024) redirect(`${back}?erro=foto`);
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const mime = imageMime(bytes);
+  if (!mime) redirect(`${back}?erro=foto`);
+  await sql(
+    `INSERT INTO client_logos (client_id, mime, data) VALUES ($1, $2, $3)
+     ON CONFLICT (client_id) DO UPDATE SET mime = excluded.mime, data = excluded.data`,
+    [clientId, mime, bytes.toString("base64")],
+  );
+  await sql("UPDATE clients SET logo_path = $1 WHERE id = $2", [`/api/clientes/${clientId}/logo`, clientId]);
+  revalidatePath(`/clientes/${clientId}`);
+  if (proposalId) revalidatePath(`/propostas/${proposalId}`);
+  redirect(`${back}?ok=foto`);
+}
+
 export async function deleteClient(formData: FormData) {
   await gate();
   const id = Number(formData.get("id"));
@@ -510,6 +538,7 @@ export async function saveRetainerCatalog(input: {
     return { ok: false, error: detail };
   }
   revalidatePath("/tabela");
+  revalidatePath("/parametros");
   revalidatePath("/");
   return { ok: true };
 }

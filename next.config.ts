@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: ["*.apps.grok.bot"],
+      bodySizeLimit: "4mb",
     },
   },
   webpack: (config) => {

@@ -5,7 +5,6 @@ import { ClientForm } from "@/components/ClientForm";
 import { FeeEditor } from "@/components/FeeEditor";
 import { RetainerCalculator } from "@/components/RetainerCalculator";
 import { RetainerHistory } from "@/components/RetainerHistory";
-import { RetainerParameters } from "@/components/RetainerParameters";
 import { eur, formatDatePT } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
 import { findProposal, getClient, getLines, getRetainerBase, getVatRate, getYear, listRetainerCatalog, listTypes, listYearChoices, listYears, retainerHistory } from "@/lib/queries";
@@ -128,11 +127,6 @@ export default async function ClientPage({
         </form>
         {year ? (
           <>
-            <RetainerParameters
-              key={catalog.map((parameter) => `${parameter.id}:${parameter.values.map((value) => value.amount).join(",")}`).join("|") + baseAmount}
-              baseAmount={baseAmount}
-              parameters={catalog}
-            />
             <RetainerCalculator
               key={`calc-${year.id}-${year.basePeriod}-${choices.map((choice) => `${choice.parameterId}:${choice.valueId}:${choice.numeric}`).join("|")}-${baseAmount}`}
               year={year}

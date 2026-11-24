@@ -1,8 +1,8 @@
+import Link from "next/link";
 import { deactivateServiceType, saveServiceType } from "@/app/actions";
-import { RetainerParameters } from "@/components/RetainerParameters";
 import { eur, INCLUSION_LABEL, PERIOD_LABEL, RULE_LABEL } from "@/lib/format";
 import { RU_TIERS, TARIFF_NOTES } from "@/lib/pricing";
-import { getRetainerBase, listRetainerCatalog, listTypes } from "@/lib/queries";
+import { listTypes } from "@/lib/queries";
 import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +17,6 @@ export default async function TariffPage({
   if (!(await requireViewer())) return null;
   const sp = await searchParams;
   const types = await listTypes(true);
-  const catalog = await listRetainerCatalog();
-  const baseAmount = await getRetainerBase();
 
   return (
     <div className="space-y-8">
@@ -52,11 +50,9 @@ export default async function TariffPage({
         </table>
       </div>
 
-      <RetainerParameters
-        key={catalog.map((parameter) => `${parameter.id}:${parameter.values.map((value) => `${value.id}:${value.amount}`).join(",")}`).join("|") + baseAmount}
-        baseAmount={baseAmount}
-        parameters={catalog}
-      />
+      <p className="text-sm text-muted">
+        Os parâmetros da avença base estão em <Link href="/parametros" className="text-navy underline">Parâmetros</Link>.
+      </p>
 
       <section>
         <h2 className="mb-3 font-serif text-2xl text-navy">Relatório Único</h2>

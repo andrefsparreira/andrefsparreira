@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveProposal } from "@/app/actions";
+import { saveCoverPhoto, saveProposal } from "@/app/actions";
 import { CompositionChart, RuChart } from "@/components/Charts";
 import { HonorariosTable } from "@/components/HonorariosTable";
 import { formatLongDate } from "@/lib/format";
@@ -19,6 +19,7 @@ export function ProposalEditor({
   sections,
   summary,
   clientName,
+  clientId,
   clientLogo,
   year,
   history,
@@ -29,6 +30,7 @@ export function ProposalEditor({
   sections: ProposalSection[];
   summary: Summary;
   clientName: string;
+  clientId: number;
   clientLogo: string | null;
   year: number;
   history: RetainerSnapshot[];
@@ -133,6 +135,8 @@ export function ProposalEditor({
                 section={section}
                 summary={summary}
                 clientName={clientName}
+                clientId={clientId}
+                proposalId={proposalId}
                 clientLogo={clientLogo}
                 year={year}
                 dateLabel={formatLongDate(date)}
@@ -274,6 +278,8 @@ function SectionView({
   section,
   summary,
   clientName,
+  clientId,
+  proposalId,
   clientLogo,
   year,
   dateLabel,
@@ -282,6 +288,8 @@ function SectionView({
   section: ProposalSection;
   summary: Summary;
   clientName: string;
+  clientId: number;
+  proposalId: number;
   clientLogo: string | null;
   year: number;
   dateLabel: string;
@@ -297,12 +305,19 @@ function SectionView({
             <h1 className="mt-4 font-serif text-4xl leading-tight text-navy">{section.title}</h1>
             <p className="mt-6 max-w-xl whitespace-pre-line text-lg text-ink">{section.tagline}</p>
           </div>
-          <div className="flex h-full min-h-56 flex-1 items-center justify-center rounded-xl bg-navy-soft p-6">
+          <div className="flex h-full min-h-56 flex-1 flex-col items-center justify-center gap-4 rounded-xl bg-navy-soft p-6">
             {clientLogo ? (
               <img src={clientLogo} alt="" className="max-h-56 w-auto" />
             ) : (
               <p className="font-serif text-3xl text-navy">{year}</p>
             )}
+            <form action={saveCoverPhoto} className="no-print flex w-full max-w-xs flex-col gap-2 text-sm">
+              <label htmlFor="cover-photo" className="font-medium text-navy">Importar fotografia</label>
+              <input id="cover-photo" name="photo" type="file" accept="image/jpeg,image/png" required className="text-xs" />
+              <input type="hidden" name="clientId" value={clientId} />
+              <input type="hidden" name="proposalId" value={proposalId} />
+              <button className="rounded-md bg-navy px-3 py-1.5 text-white">Usar na capa</button>
+            </form>
           </div>
         </div>
         <p className="mt-6 text-sm text-muted">{dateLabel}</p>

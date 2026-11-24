@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { formatLongDate } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
-import { getClient, getLines, getProposal, getVatRate, getYear, retainerHistory } from "@/lib/queries";
+import { getClient, getClientLogo, getLines, getProposal, getVatRate, getYear, retainerHistory } from "@/lib/queries";
 import { ProposalDocument, publicFile } from "@/pdf/ProposalPdf";
 import { requireIdentity, requireViewer } from "@/lib/viewer";
 
@@ -23,6 +23,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const summary = computeSummary(lines, await getVatRate());
   const logo = publicFile("/brand/ks-logo.png");
   if (!logo) return new NextResponse("Logótipo em falta", { status: 500 });
+  const storedLogo = await getClientLogo(client.id);
   const ru = summary.lines.find((line) => line.pricingRule === "ru_tier");
 
   const buffer = await renderToBuffer(
@@ -33,7 +34,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       sections={proposal.sections}
       summary={summary}
       logoSrc={logo}
-      clientLogoSrc={publicFile(client.logoPath)}
+      clientLogoSrc={storedLogo ? `data:${storedLogo.mime};base64,${storedLogo.data}` : publicFile(client.logoPath)}
       ruHeadcount={ru?.quantity ?? null}
       history={await retainerHistory(client.id, proposal.year)}
     />,

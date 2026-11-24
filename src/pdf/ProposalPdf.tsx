@@ -334,7 +334,9 @@ function RuBars({ headcount }: { headcount: number | null }) {
 }
 
 export function publicFile(src: string | null): string | null {
-  if (!src) return null;
-  if (src.startsWith("/")) return path.join(process.cwd(), "public", src.replace(/^\//, ""));
-  return src;
+  if (!src || !src.startsWith("/brand/") || src.includes("..")) return null;
+  const full = path.resolve(process.cwd(), "public", src.replace(/^\//, ""));
+  const root = path.resolve(process.cwd(), "public");
+  if (full !== root && !full.startsWith(root + path.sep)) return null;
+  return full;
 }

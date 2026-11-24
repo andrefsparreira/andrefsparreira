@@ -74,6 +74,14 @@ export async function getClient(id: number): Promise<Client | null> {
   return rows[0] ? mapClient(rows[0]) : null;
 }
 
+export async function getClientLogo(clientId: number): Promise<{ mime: string; data: string } | null> {
+  const rows = await sql<{ mime: string; data: string }>(
+    "SELECT mime, data FROM client_logos WHERE client_id = $1",
+    [clientId],
+  );
+  return rows[0] ?? null;
+}
+
 type YearRow = {
   id: number;
   client_id: number;

@@ -101,8 +101,9 @@ export function RetainerCalculator({
     <section className="rounded-xl border border-line bg-card p-5">
       <h3 className="font-serif text-2xl text-navy">Cálculo da avença base de {year.year}</h3>
       <p className="mt-2 max-w-3xl text-sm text-muted">
-        Parte de {eur(baseAmount)} por {periodLabel(period)}. Os parâmetros acima ajustam só esta avença base. A
-        periodicidade pode ser mensal ou trimestral. O ajuste manual pode reduzir ou aumentar o resultado.
+        Parte de {eur(baseAmount)} por {periodLabel(period)}. Aqui escolhe-se, para este cliente, a quantidade de
+        documentos, a faturação e os restantes valores. A periodicidade pode ser mensal ou trimestral. O ajuste manual
+        pode reduzir ou aumentar o resultado.
       </p>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <label className="text-sm">

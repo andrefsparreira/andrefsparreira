@@ -13,7 +13,7 @@ export default async function ProposalPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ editar?: string; ok?: string }>;
+  searchParams: Promise<{ editar?: string; ok?: string; erro?: string }>;
 }) {
   if (!(await requireViewer())) return null;
   const { id } = await params;
@@ -42,6 +42,8 @@ export default async function ProposalPage({
         </form>
       </div>
       {sp.ok === "textos" ? <p className="no-print mb-4 text-sm text-navy">Textos repostos a partir do modelo.</p> : null}
+      {sp.ok === "foto" ? <p className="no-print mb-4 text-sm text-navy">Fotografia da capa guardada.</p> : null}
+      {sp.erro === "foto" ? <p className="no-print mb-4 text-sm text-[#8d2f39]">A fotografia tem de ser JPEG ou PNG, até 4 MB.</p> : null}
       <ProposalEditor
         key={`${proposal.id}-${proposal.updatedAt}`}
         proposalId={proposal.id}
@@ -49,6 +51,7 @@ export default async function ProposalPage({
         sections={proposal.sections}
         summary={summary}
         clientName={client.name}
+        clientId={client.id}
         clientLogo={client.logoPath}
         year={proposal.year}
         history={history}
