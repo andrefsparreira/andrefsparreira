@@ -1,3 +1,4 @@
+import "@/pdf/standard-fonts";
 import { existsSync, readFileSync } from "node:fs";
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";

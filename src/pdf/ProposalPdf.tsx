@@ -1,3 +1,4 @@
+import "@/pdf/standard-fonts";
 import path from "node:path";
 import type { ReactNode } from "react";
 import {

@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@electric-sql/pglite", "pg", "@react-pdf/renderer"],
+  serverExternalPackages: ["@electric-sql/pglite", "pg", "@react-pdf/renderer", "pdfkit"],
   outputFileTracingIncludes: {
-    "/*": ["./migrations/**/*", "./public/brand/**/*"],
+    "/*": ["./migrations/**/*", "./public/brand/**/*", "./node_modules/pdfkit/js/**/*"],
   },
   experimental: {
     serverActions: {
