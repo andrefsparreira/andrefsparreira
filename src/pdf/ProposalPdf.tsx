@@ -10,7 +10,7 @@ import {
 } from "@react-pdf/renderer";
 import { eur, pct } from "@/lib/format";
 import { RU_TIERS, type Summary } from "@/lib/pricing";
-import type { ProposalSection } from "@/lib/types";
+import type { ProposalSection, RetainerSnapshot } from "@/lib/types";
 
 Font.registerHyphenationCallback((word) => [word]);
 
@@ -67,6 +67,7 @@ export function ProposalDocument({
   logoSrc,
   clientLogoSrc,
   ruHeadcount,
+  history,
 }: {
   clientName: string;
   year: number;
@@ -76,26 +77,71 @@ export function ProposalDocument({
   logoSrc: string;
   clientLogoSrc: string | null;
   ruHeadcount: number | null;
+  history: RetainerSnapshot[];
 }) {
+  const pages = sections.flatMap((section) => {
+    if (section.kind === "cover") {
+      return [
+        <Page key={section.id} size="A4" orientation="landscape" style={styles.cover}>
+          <Cover section={section} dateLabel={dateLabel} logoSrc={logoSrc} clientLogoSrc={clientLogoSrc} />
+          <SlideFooter year={year} clientName={clientName} />
+        </Page>,
+      ];
+    }
+    const slide = (
+      <Page key={section.id} size="A4" orientation="landscape" style={styles.page} wrap>
+        <Header clientName={clientName} logoSrc={logoSrc} />
+        <Text style={styles.h1}>{section.title}</Text>
+        <SectionBody section={section} summary={summary} ruHeadcount={ruHeadcount} />
+        <SlideFooter year={year} clientName={clientName} />
+      </Page>
+    );
+    if (section.kind !== "honorarios") return [slide];
+    return [
+      <Page key={`${section.id}-historico`} size="A4" orientation="landscape" style={styles.page}>
+        <Header clientName={clientName} logoSrc={logoSrc} />
+        <Text style={styles.h1}>Avenças já praticadas</Text>
+        <HistoryBars rows={history} year={year} />
+        <SlideFooter year={year} clientName={clientName} />
+      </Page>,
+      slide,
+    ];
+  });
+
   return (
     <Document title={`Proposta ${year} · ${clientName}`} author="KS Consultores">
-      {sections.map((section) =>
-        section.kind === "cover" ? (
-          <Page key={section.id} size="A4" orientation="landscape" style={styles.cover}>
-            <Cover section={section} dateLabel={dateLabel} logoSrc={logoSrc} clientLogoSrc={clientLogoSrc} />
-          </Page>
-        ) : (
-          <Page key={section.id} size="A4" orientation="landscape" style={styles.page} wrap>
-            <Header clientName={clientName} logoSrc={logoSrc} />
-            <Text style={styles.h1}>{section.title}</Text>
-            <SectionBody section={section} summary={summary} ruHeadcount={ruHeadcount} />
-            <Text style={styles.footer} fixed>
-              KS Consultores · Proposta de prestação de serviços {year} · {clientName}
-            </Text>
-          </Page>
-        ),
-      )}
+      {pages}
     </Document>
+  );
+}
+
+function SlideFooter({ year, clientName }: { year: number; clientName: string }) {
+  return (
+    <Text
+      style={styles.footer}
+      fixed
+      render={({ pageNumber, totalPages }) =>
+        `KS Consultores · Proposta ${year} · ${clientName} · ${pageNumber} / ${totalPages}`
+      }
+    />
+  );
+}
+
+function HistoryBars({ rows, year }: { rows: RetainerSnapshot[]; year: number }) {
+  const max = Math.max(1, ...rows.map((row) => row.monthly ?? 0));
+  return (
+    <View>
+      <Text style={styles.body}>Valores mensais dos cinco anos anteriores a {year}.</Text>
+      {rows.map((row) => (
+        <View key={row.year} style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
+          <Text style={{ width: 48, fontSize: 11, color: navy }}>{row.year}</Text>
+          <View style={{ width: Math.max(((row.monthly ?? 0) / max) * 280, row.monthly ? 4 : 0), height: 10, backgroundColor: navy }} />
+          <Text style={{ marginLeft: 8, fontSize: 10 }}>
+            {row.monthly == null ? "por lançar" : `${eur(row.monthly)} / mês · ${eur(row.annual ?? 0)} / ano`}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }
 

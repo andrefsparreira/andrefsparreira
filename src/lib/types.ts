@@ -38,11 +38,28 @@ export type ServiceType = {
   active: boolean;
 };
 
+export type ClientStatus = "atual" | "novo";
+export type DocOrganization = "organizada" | "alguma" | "desorganizada" | "muito_desorganizada";
+export type DocMedium = "digital" | "misto" | "fisico";
+
 export type FeeYear = {
   id: number;
   clientId: number;
   year: number;
   note: string;
+  monthlyRetainer: number | null;
+  clientStatus: ClientStatus;
+  docOrganization: DocOrganization;
+  docCount: number | null;
+  docMedium: DocMedium;
+  turnover: number | null;
+  manualAdjust: number;
+};
+
+export type RetainerSnapshot = {
+  year: number;
+  monthly: number | null;
+  annual: number | null;
 };
 
 export type FeeLine = {

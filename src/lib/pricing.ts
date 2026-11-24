@@ -1,5 +1,5 @@
 import { eur, round2 } from "./format";
-import type { Inclusion, Periodicity, PricingRule } from "./types";
+import type { ClientStatus, DocMedium, DocOrganization, Inclusion, Periodicity, PricingRule } from "./types";
 
 /**
  * Parâmetros lidos de proposta-modelo.xlsx.
@@ -312,4 +312,114 @@ export function monthlyRunRate(summary: Summary): number {
       return sum + line.periodAmount;
     }, 0),
   );
+}
+
+/** Avença mensal de partida. Os parâmetros somam-se a este valor. */
+export const BASE_MONTHLY_RETAINER = 150;
+export const HISTORY_YEARS = 5;
+
+export const DOC_ORGANIZATION: { id: DocOrganization; label: string; hint: string; monthly: number }[] = [
+  { id: "organizada", label: "Organizada", hint: "Documentos identificados e por ordem.", monthly: 0 },
+  { id: "alguma", label: "Alguma dificuldade", hint: "Atrasos pontuais ou classificação incompleta.", monthly: 25 },
+  { id: "desorganizada", label: "Desorganizada", hint: "Exige triagem regular antes do lançamento.", monthly: 50 },
+  { id: "muito_desorganizada", label: "Muito desorganizada", hint: "Reconstrução frequente do suporte.", monthly: 90 },
+];
+
+/** Quantidade média de documentos por mês. */
+export const DOC_VOLUME: { max: number | null; label: string; monthly: number }[] = [
+  { max: 40, label: "Até 40 documentos por mês", monthly: 0 },
+  { max: 120, label: "41 a 120 documentos por mês", monthly: 20 },
+  { max: 300, label: "121 a 300 documentos por mês", monthly: 45 },
+  { max: null, label: "Mais de 300 documentos por mês", monthly: 80 },
+];
+
+export const DOC_MEDIUM: { id: DocMedium; label: string; hint: string; monthly: number }[] = [
+  {
+    id: "digital",
+    label: "Digital",
+    hint: "Mais acessível: já está contemplado na base de 150,00 €.",
+    monthly: 0,
+  },
+  { id: "misto", label: "Misto", hint: "Parte em papel e parte digital.", monthly: 15 },
+  { id: "fisico", label: "Físico", hint: "Papel: recolha, arquivo e digitalização.", monthly: 40 },
+];
+
+export const TURNOVER_BANDS: { max: number | null; label: string; monthly: number }[] = [
+  { max: 50_000, label: "Até 50.000 €", monthly: 0 },
+  { max: 150_000, label: "De 50.001 € a 150.000 €", monthly: 25 },
+  { max: 400_000, label: "De 150.001 € a 400.000 €", monthly: 60 },
+  { max: 1_000_000, label: "De 400.001 € a 1.000.000 €", monthly: 110 },
+  { max: null, label: "Acima de 1.000.000 €", monthly: 180 },
+];
+
+export type RetainerInput = {
+  proposalYear: number;
+  clientStatus: ClientStatus;
+  docOrganization: DocOrganization;
+  docCount: number | null;
+  docMedium: DocMedium;
+  turnover: number | null;
+  manualAdjust: number;
+};
+
+export type RetainerPart = { label: string; detail: string; monthly: number };
+
+export type RetainerQuote = {
+  base: number;
+  parts: RetainerPart[];
+  monthly: number;
+  annual: number;
+  turnoverCaption: string;
+};
+
+export function historyWindow(proposalYear: number): number[] {
+  return Array.from({ length: HISTORY_YEARS }, (_, index) => proposalYear - HISTORY_YEARS + index);
+}
+
+function bandMonthly(
+  bands: { max: number | null; label: string; monthly: number }[],
+  value: number,
+): { label: string; monthly: number } {
+  const found = bands.find((band) => band.max == null || value <= band.max);
+  return found ?? { label: bands[bands.length - 1]?.label ?? "", monthly: bands[bands.length - 1]?.monthly ?? 0 };
+}
+
+export function computeRetainer(input: RetainerInput): RetainerQuote {
+  const organization = DOC_ORGANIZATION.find((item) => item.id === input.docOrganization) ?? DOC_ORGANIZATION[0]!;
+  const medium = DOC_MEDIUM.find((item) => item.id === input.docMedium) ?? DOC_MEDIUM[0]!;
+  const count = input.docCount;
+  const volume =
+    count == null || !Number.isFinite(count) || count < 0
+      ? { label: "Quantidade por indicar", monthly: 0 }
+      : bandMonthly(DOC_VOLUME, count);
+  const turnoverValue = input.turnover;
+  const turnover =
+    turnoverValue == null || !Number.isFinite(turnoverValue) || turnoverValue < 0
+      ? { label: "Faturação por indicar", monthly: 0 }
+      : bandMonthly(TURNOVER_BANDS, turnoverValue);
+  const manual = Number.isFinite(input.manualAdjust) ? round2(input.manualAdjust) : 0;
+  const turnoverCaption =
+    input.clientStatus === "novo"
+      ? `Faturação esperada no final de ${input.proposalYear}`
+      : `Faturação de ${input.proposalYear - 1}`;
+
+  const parts: RetainerPart[] = [
+    { label: "Organização da documentação", detail: organization.label, monthly: organization.monthly },
+    {
+      label: "Quantidade de documentos",
+      detail: count == null ? volume.label : `${volume.label} (${count})`,
+      monthly: volume.monthly,
+    },
+    { label: "Suporte da documentação", detail: medium.label, monthly: medium.monthly },
+    { label: turnoverCaption, detail: turnover.label, monthly: turnover.monthly },
+    { label: "Ajuste manual", detail: manual === 0 ? "Nenhum" : eur(manual), monthly: manual },
+  ];
+  const monthly = round2(Math.max(0, BASE_MONTHLY_RETAINER + parts.reduce((sum, part) => sum + part.monthly, 0)));
+  return {
+    base: BASE_MONTHLY_RETAINER,
+    parts,
+    monthly,
+    annual: round2(monthly * 12),
+    turnoverCaption,
+  };
 }

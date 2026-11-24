@@ -7,7 +7,8 @@ import { CompositionChart, RuChart } from "@/components/Charts";
 import { HonorariosTable } from "@/components/HonorariosTable";
 import { formatLongDate } from "@/lib/format";
 import type { Summary } from "@/lib/pricing";
-import type { ProposalSection } from "@/lib/types";
+import type { ProposalSection, RetainerSnapshot } from "@/lib/types";
+import { HistorySlide } from "@/components/RetainerHistory";
 
 const input = "w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-navy";
 
@@ -19,6 +20,7 @@ export function ProposalEditor({
   clientName,
   clientLogo,
   year,
+  history,
   initialEditing,
 }: {
   proposalId: number;
@@ -28,6 +30,7 @@ export function ProposalEditor({
   clientName: string;
   clientLogo: string | null;
   year: number;
+  history: RetainerSnapshot[];
   initialEditing: boolean;
 }) {
   const router = useRouter();
@@ -115,19 +118,26 @@ export function ProposalEditor({
         </div>
       ) : null}
 
-      <div className="space-y-8">
+      <div className="slide-deck">
         {draft.map((section) => (
-          <article key={section.id} className="print-sheet overflow-hidden rounded-xl bg-white shadow-sheet">
-            <SectionView
-              section={section}
-              summary={summary}
-              clientName={clientName}
-              clientLogo={clientLogo}
-              year={year}
-              dateLabel={formatLongDate(date)}
-              ruHeadcount={ru?.quantity ?? null}
-            />
-          </article>
+          <div key={section.id} className="contents">
+            {section.kind === "honorarios" ? (
+              <article className="print-sheet overflow-hidden rounded-xl bg-white shadow-sheet">
+                <HistorySlide rows={history} proposalYear={year} />
+              </article>
+            ) : null}
+            <article className="print-sheet overflow-hidden rounded-xl bg-white shadow-sheet">
+              <SectionView
+                section={section}
+                summary={summary}
+                clientName={clientName}
+                clientLogo={clientLogo}
+                year={year}
+                dateLabel={formatLongDate(date)}
+                ruHeadcount={ru?.quantity ?? null}
+              />
+            </article>
+          </div>
         ))}
       </div>
     </div>
@@ -276,8 +286,8 @@ function SectionView({
 }) {
   if (section.kind === "cover") {
     return (
-      <div className="grid min-h-[28rem] md:grid-cols-[1.3fr_0.7fr]">
-        <div className="flex flex-col justify-between p-8 md:p-12">
+      <div className="grid h-full min-h-[28rem] md:grid-cols-[1.3fr_0.7fr]">
+        <div className="flex h-full flex-col justify-between p-8 md:p-12">
           <img src="/brand/ks-logo.png" alt="KS Consultores" className="h-12 w-auto self-start" />
           <div>
             <p className="text-sm uppercase tracking-[0.18em] text-[#8d2f39]">{section.kicker}</p>

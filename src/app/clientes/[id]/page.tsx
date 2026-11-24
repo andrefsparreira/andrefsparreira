@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { createYear, deleteClient, loadModelLines, openProposal, updateClient } from "@/app/actions";
 import { ClientForm } from "@/components/ClientForm";
 import { FeeEditor } from "@/components/FeeEditor";
+import { RetainerCalculator } from "@/components/RetainerCalculator";
+import { RetainerHistory } from "@/components/RetainerHistory";
 import { eur, formatDatePT } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
-import { findProposal, getClient, getLines, getVatRate, getYear, listTypes, listYears } from "@/lib/queries";
+import { findProposal, getClient, getLines, getVatRate, getYear, listTypes, listYears, retainerHistory } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +22,12 @@ export default async function ClientPage({
   const sp = await searchParams;
   const client = await getClient(Number(id));
   if (!client) notFound();
-  const years = await listYears(client.id);
   const requested = Number(sp.ano || 2027);
+  const requestedYear = Number.isInteger(requested) ? requested : 2027;
+  const existing = await listYears(client.id);
+  const anchor = Math.max(2027, requestedYear, ...existing.map((item) => item.year));
+  const history = await retainerHistory(client.id, anchor);
+  const years = await listYears(client.id);
   const year = years.find((item) => item.year === requested) ?? years[years.length - 1] ?? null;
   const lines = year ? await getLines(year.id) : [];
   const types = await listTypes();
@@ -67,9 +73,16 @@ export default async function ClientPage({
         </form>
       </section>
 
+      <RetainerHistory
+        key={history.map((row) => `${row.year}:${row.monthly ?? ""}`).join("|")}
+        clientId={client.id}
+        proposalYear={anchor}
+        rows={history}
+      />
+
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 className="font-serif text-2xl text-navy">Histórico de avenças</h2>
+          <h2 className="font-serif text-2xl text-navy">Linhas de honorários</h2>
           {year ? (
             <p className="text-sm text-muted">
               Valor anual corrente em {year.year}: {eur(summary.subtotalCorrente)}. Com IVA: {eur(summary.totalCorrenteComIva)}.
@@ -109,6 +122,11 @@ export default async function ClientPage({
         </form>
         {year ? (
           <>
+            <RetainerCalculator
+              key={`calc-${year.id}-${year.manualAdjust}-${year.docCount}-${year.turnover}-${year.clientStatus}`}
+              year={year}
+              fallbackTurnover={year.year === 2027 ? client.expectedTurnover : null}
+            />
             <form action={loadModelLines}>
               <input type="hidden" name="clientId" value={client.id} />
               <input type="hidden" name="year" value={year.year} />
@@ -117,7 +135,7 @@ export default async function ClientPage({
               </button>
             </form>
             <FeeEditor
-              key={`${year.id}-${lines.map((line) => line.id).join(".")}`}
+              key={`${year.id}-${lines.map((line) => `${line.id}:${line.unitValue ?? ""}:${line.notes}`).join("|")}`}
               yearId={year.id}
               lines={lines}
               types={types}

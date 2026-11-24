@@ -1,7 +1,10 @@
 import { sql } from "./db";
-import { DEFAULT_VAT_RATE } from "./pricing";
+import { computeSummary, DEFAULT_VAT_RATE, historyWindow, monthlyRunRate } from "./pricing";
 import type {
   Client,
+  ClientStatus,
+  DocMedium,
+  DocOrganization,
   FeeLine,
   FeeYear,
   Inclusion,
@@ -9,6 +12,7 @@ import type {
   PricingRule,
   Proposal,
   ProposalSection,
+  RetainerSnapshot,
   ServiceType,
 } from "./types";
 
@@ -66,27 +70,100 @@ export async function getClient(id: number): Promise<Client | null> {
   return rows[0] ? mapClient(rows[0]) : null;
 }
 
-export async function listYears(clientId: number): Promise<FeeYear[]> {
-  const rows = await sql<{ id: number; client_id: number; year: number; note: string }>(
-    "SELECT id, client_id, year, note FROM fee_years WHERE client_id = $1 ORDER BY year",
-    [clientId],
-  );
-  return rows.map((row) => ({
+type YearRow = {
+  id: number;
+  client_id: number;
+  year: number;
+  note: string;
+  monthly_retainer: number | null;
+  client_status: string;
+  doc_organization: string;
+  doc_count: number | null;
+  doc_medium: string;
+  turnover: number | null;
+  manual_adjust: number | null;
+};
+
+const YEAR_COLUMNS = `id, client_id, year, note, monthly_retainer, client_status, doc_organization,
+  doc_count, doc_medium, turnover, manual_adjust`;
+
+function mapYear(row: YearRow): FeeYear {
+  const status: ClientStatus = row.client_status === "novo" ? "novo" : "atual";
+  const organization: DocOrganization =
+    row.doc_organization === "alguma" ||
+    row.doc_organization === "desorganizada" ||
+    row.doc_organization === "muito_desorganizada"
+      ? row.doc_organization
+      : "organizada";
+  const medium: DocMedium = row.doc_medium === "misto" || row.doc_medium === "fisico" ? row.doc_medium : "digital";
+  return {
     id: Number(row.id),
     clientId: Number(row.client_id),
     year: Number(row.year),
     note: row.note,
-  }));
+    monthlyRetainer: row.monthly_retainer,
+    clientStatus: status,
+    docOrganization: organization,
+    docCount: row.doc_count,
+    docMedium: medium,
+    turnover: row.turnover,
+    manualAdjust: Number(row.manual_adjust ?? 0),
+  };
+}
+
+export async function ensureFeeYears(clientId: number, years: number[]) {
+  for (const year of years) {
+    await sql(
+      `INSERT INTO fee_years (client_id, year, note) VALUES ($1, $2, '')
+       ON CONFLICT (client_id, year) DO NOTHING`,
+      [clientId, year],
+    );
+  }
+}
+
+export async function listYears(clientId: number): Promise<FeeYear[]> {
+  const rows = await sql<YearRow>(
+    `SELECT ${YEAR_COLUMNS} FROM fee_years WHERE client_id = $1 ORDER BY year`,
+    [clientId],
+  );
+  return rows.map(mapYear);
 }
 
 export async function getYear(clientId: number, year: number): Promise<FeeYear | null> {
-  const rows = await sql<{ id: number; client_id: number; year: number; note: string }>(
-    "SELECT id, client_id, year, note FROM fee_years WHERE client_id = $1 AND year = $2",
+  const rows = await sql<YearRow>(
+    `SELECT ${YEAR_COLUMNS} FROM fee_years WHERE client_id = $1 AND year = $2`,
     [clientId, year],
   );
-  const row = rows[0];
-  if (!row) return null;
-  return { id: Number(row.id), clientId: Number(row.client_id), year: Number(row.year), note: row.note };
+  return rows[0] ? mapYear(rows[0]) : null;
+}
+
+export function displayedMonthly(year: FeeYear, lines: FeeLine[]): number | null {
+  const hasMonthly = lines.some(
+    (line) => line.periodicity === "mensal" && line.inclusion === "valor" && !line.optional && line.unitValue != null,
+  );
+  if (hasMonthly) return monthlyRunRate(computeSummary(lines));
+  return year.monthlyRetainer;
+}
+
+export async function retainerHistory(clientId: number, proposalYear: number): Promise<RetainerSnapshot[]> {
+  const window = historyWindow(proposalYear);
+  await ensureFeeYears(clientId, window);
+  const years = await listYears(clientId);
+  const snapshots: RetainerSnapshot[] = [];
+  for (const value of window) {
+    const row = years.find((item) => item.year === value);
+    if (!row) {
+      snapshots.push({ year: value, monthly: null, annual: null });
+      continue;
+    }
+    const monthly = displayedMonthly(row, await getLines(row.id));
+    snapshots.push({
+      year: value,
+      monthly,
+      annual: monthly == null ? null : Math.round(monthly * 12 * 100) / 100,
+    });
+  }
+  return snapshots;
 }
 
 type LineRow = {

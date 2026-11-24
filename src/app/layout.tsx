@@ -46,7 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="h-1 bg-navy" />
           <div className="h-0.5 bg-[#8d2f39]" />
         </header>
-        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+        <main className="app-main mx-auto max-w-6xl px-4 py-8">{children}</main>
       </body>
     </html>
   );

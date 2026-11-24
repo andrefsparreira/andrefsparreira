@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { resetProposalTexts } from "@/app/actions";
 import { ProposalEditor } from "@/components/ProposalEditor";
 import { computeSummary } from "@/lib/pricing";
-import { getClient, getLines, getProposal, getVatRate, getYear } from "@/lib/queries";
+import { getClient, getLines, getProposal, getVatRate, getYear, retainerHistory } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,7 @@ export default async function ProposalPage({
   const year = await getYear(client.id, proposal.year);
   const lines = year ? await getLines(year.id) : [];
   const summary = computeSummary(lines, await getVatRate());
+  const history = await retainerHistory(client.id, proposal.year);
 
   return (
     <div>
@@ -48,6 +49,7 @@ export default async function ProposalPage({
         clientName={client.name}
         clientLogo={client.logoPath}
         year={proposal.year}
+        history={history}
         initialEditing={sp.editar === "1"}
       />
     </div>

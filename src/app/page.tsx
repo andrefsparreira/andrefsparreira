@@ -28,7 +28,7 @@ export default async function HomePage({
           <p className="text-sm uppercase tracking-[0.16em] text-[#8d2f39]">Gabinete</p>
           <h1 className="font-serif text-4xl text-navy">Clientes e avenças</h1>
           <p className="mt-2 max-w-2xl text-muted">
-            Propostas de prestação de serviços para 2027, com o histórico de avenças e a tabela de honorários do modelo.
+            Propostas de prestação de serviços para 2027. A avença mensal parte de 150,00 € e ajusta-se à documentação e à faturação. O histórico mostra os cinco anos anteriores.
           </p>
         </div>
         <Link href="/clientes/novo" className="rounded-md bg-navy px-4 py-2 text-sm text-white">

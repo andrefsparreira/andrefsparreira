@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { formatLongDate } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
-import { getClient, getLines, getProposal, getVatRate, getYear } from "@/lib/queries";
+import { getClient, getLines, getProposal, getVatRate, getYear, retainerHistory } from "@/lib/queries";
 import { ProposalDocument, publicFile } from "@/pdf/ProposalPdf";
 import { requireIdentity } from "@/lib/viewer";
 
@@ -34,6 +34,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       logoSrc={logo}
       clientLogoSrc={publicFile(client.logoPath)}
       ruHeadcount={ru?.quantity ?? null}
+      history={await retainerHistory(client.id, proposal.year)}
     />,
   );
 

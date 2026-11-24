@@ -2,13 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { sql, withTransaction } from "@/lib/db";
+import { sql, withTransaction, type Query } from "@/lib/db";
 import { modeloLinhas } from "@/lib/example";
 import { parseDecimal, todayISO } from "@/lib/format";
-import { getClient, getLines, getYear } from "@/lib/queries";
+import { computeRetainer, historyWindow } from "@/lib/pricing";
+import { ensureFeeYears, getClient, getLines, getYear } from "@/lib/queries";
 import { insertDrafts } from "@/lib/seed";
 import { buildProposalSections } from "@/lib/template";
-import type { Inclusion, LineDraft, Periodicity, PricingRule, ProposalSection } from "@/lib/types";
+import type {
+  ClientStatus,
+  DocMedium,
+  DocOrganization,
+  Inclusion,
+  LineDraft,
+  Periodicity,
+  PricingRule,
+  ProposalSection,
+} from "@/lib/types";
 import { requireViewer } from "@/lib/viewer";
 
 const PERIODS = new Set<Periodicity>(["mensal", "trimestral", "anual", "one_shot"]);
@@ -82,7 +92,11 @@ export async function createClient(formData: FormData) {
     ],
   );
   const id = Number(inserted[0]?.id);
-  await sql("INSERT INTO fee_years (client_id, year, note) VALUES ($1, 2027, $2)", [id, "Ano alvo da proposta."]);
+  await ensureFeeYears(id, [...historyWindow(2027), 2027]);
+  await sql("UPDATE fee_years SET note = $1 WHERE client_id = $2 AND year = 2027", [
+    "Ano alvo da proposta.",
+    id,
+  ]);
   revalidatePath("/");
   redirect(`/clientes/${id}?ok=criado`);
 }
@@ -322,6 +336,160 @@ export async function saveProposal(input: {
     [input.proposalDate, JSON.stringify(input.sections), input.id],
   );
   revalidatePath(`/propostas/${input.id}`);
+  return { ok: true };
+}
+
+const STATUSES = new Set<ClientStatus>(["atual", "novo"]);
+const ORGANIZATIONS = new Set<DocOrganization>(["organizada", "alguma", "desorganizada", "muito_desorganizada"]);
+const MEDIUMS = new Set<DocMedium>(["digital", "misto", "fisico"]);
+
+async function upsertMonthlyLine(
+  query: Query,
+  yearId: number,
+  monthly: number,
+  note: string,
+  createIfMissing: boolean,
+) {
+  const rows = await query<{ id: number }>(
+    `SELECT id FROM fee_lines
+     WHERE year_id = $1 AND periodicity = 'mensal' AND inclusion = 'valor' AND optional = 0
+     ORDER BY sort_order, id
+     LIMIT 1`,
+    [yearId],
+  );
+  const existing = rows[0];
+  if (existing) {
+    await query("UPDATE fee_lines SET unit_value = $1, manual = 1, notes = $2 WHERE id = $3", [
+      monthly,
+      note,
+      existing.id,
+    ]);
+    return;
+  }
+  if (!createIfMissing) return;
+  await query(LINE_INSERT, [
+    yearId,
+    0,
+    "mensal",
+    "Responsabilidade CC e execução dos serviços",
+    "mensal",
+    null,
+    "valor",
+    0,
+    monthly,
+    1,
+    "fixed",
+    note,
+  ]);
+}
+
+export async function saveRetainerAssessment(input: {
+  yearId: number;
+  clientStatus: ClientStatus;
+  docOrganization: DocOrganization;
+  docCount: number | null;
+  docMedium: DocMedium;
+  turnover: number | null;
+  manualAdjust: number;
+}): Promise<{ ok: true; monthly: number } | { ok: false; error: string }> {
+  if (!(await requireViewer())) return { ok: false, error: "Sessão em falta." };
+  const yearRows = await sql<{ id: number; client_id: number; year: number }>(
+    "SELECT id, client_id, year FROM fee_years WHERE id = $1",
+    [input.yearId],
+  );
+  const yearRow = yearRows[0];
+  if (!yearRow) return { ok: false, error: "Ano não encontrado." };
+  if (!STATUSES.has(input.clientStatus) || !ORGANIZATIONS.has(input.docOrganization) || !MEDIUMS.has(input.docMedium)) {
+    return { ok: false, error: "Parâmetros inválidos." };
+  }
+  if (input.docCount != null && (!Number.isFinite(input.docCount) || input.docCount < 0 || input.docCount > 100000)) {
+    return { ok: false, error: "A quantidade de documentos tem de ser zero ou positiva." };
+  }
+  if (input.turnover != null && (!Number.isFinite(input.turnover) || input.turnover < 0)) {
+    return { ok: false, error: "A faturação tem de ser zero ou positiva." };
+  }
+  if (!Number.isFinite(input.manualAdjust)) return { ok: false, error: "O ajuste manual não é um número." };
+
+  const quote = computeRetainer({
+    proposalYear: Number(yearRow.year),
+    clientStatus: input.clientStatus,
+    docOrganization: input.docOrganization,
+    docCount: input.docCount,
+    docMedium: input.docMedium,
+    turnover: input.turnover,
+    manualAdjust: input.manualAdjust,
+  });
+  const note = `Calculada sobre a base de 150,00 €: ${quote.parts
+    .map((part) => `${part.label} ${part.monthly >= 0 ? "+" : ""}${part.monthly.toFixed(2).replace(".", ",")} €`)
+    .join("; ")}.`;
+
+  await withTransaction(async (query) => {
+    await query(
+      `UPDATE fee_years SET
+        monthly_retainer = $1,
+        client_status = $2,
+        doc_organization = $3,
+        doc_count = $4,
+        doc_medium = $5,
+        turnover = $6,
+        manual_adjust = $7
+       WHERE id = $8`,
+      [
+        quote.monthly,
+        input.clientStatus,
+        input.docOrganization,
+        input.docCount,
+        input.docMedium,
+        input.turnover,
+        quote.parts.find((part) => part.label === "Ajuste manual")?.monthly ?? 0,
+        input.yearId,
+      ],
+    );
+    await upsertMonthlyLine(query, input.yearId, quote.monthly, note, true);
+  });
+  revalidatePath(`/clientes/${yearRow.client_id}`);
+  revalidatePath("/");
+  return { ok: true, monthly: quote.monthly };
+}
+
+export async function saveRetainerHistory(input: {
+  clientId: number;
+  proposalYear: number;
+  rows: { year: number; monthly: number | null }[];
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await requireViewer())) return { ok: false, error: "Sessão em falta." };
+  const client = await getClient(input.clientId);
+  if (!client) return { ok: false, error: "Cliente não encontrado." };
+  const allowed = new Set(historyWindow(input.proposalYear));
+  for (const row of input.rows) {
+    if (!allowed.has(row.year)) return { ok: false, error: "Ano fora do histórico." };
+    if (row.monthly != null && (!Number.isFinite(row.monthly) || row.monthly < 0)) {
+      return { ok: false, error: `A avença de ${row.year} tem de ser zero ou positiva.` };
+    }
+  }
+  await withTransaction(async (query) => {
+    for (const row of input.rows) {
+      const existing = await query<{ id: number }>(
+        "SELECT id FROM fee_years WHERE client_id = $1 AND year = $2",
+        [input.clientId, row.year],
+      );
+      let yearId = existing[0] ? Number(existing[0].id) : 0;
+      if (!yearId) {
+        const created = await query<{ id: number }>(
+          "INSERT INTO fee_years (client_id, year, note, monthly_retainer) VALUES ($1, $2, $3, $4) RETURNING id",
+          [input.clientId, row.year, "Avença mensal já praticada.", row.monthly],
+        );
+        yearId = Number(created[0]?.id);
+      } else {
+        await query("UPDATE fee_years SET monthly_retainer = $1 WHERE id = $2", [row.monthly, yearId]);
+      }
+      if (row.monthly != null) {
+        await upsertMonthlyLine(query, yearId, row.monthly, "Valor lançado no histórico de avenças.", false);
+      }
+    }
+  });
+  revalidatePath(`/clientes/${input.clientId}`);
+  revalidatePath("/");
   return { ok: true };
 }
 

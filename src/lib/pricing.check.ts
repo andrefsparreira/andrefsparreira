@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { modeloLinhas } from "./example";
 import {
+  computeRetainer,
   computeSummary,
+  historyWindow,
   monthlyRunRate,
   ruTier,
   suggestMonthlyUpdate,
@@ -63,6 +65,33 @@ const admissions = computeSummary([
 ]);
 assert.equal(admissions.lines[0]?.periodAmount, 36);
 assert.equal(admissions.subtotalCorrente, 36);
+
+const baseQuote = computeRetainer({
+  proposalYear: 2027,
+  clientStatus: "novo",
+  docOrganization: "organizada",
+  docCount: 30,
+  docMedium: "digital",
+  turnover: 40000,
+  manualAdjust: 0,
+});
+assert.equal(baseQuote.monthly, 150);
+assert.equal(baseQuote.annual, 1800);
+assert.equal(baseQuote.turnoverCaption, "Faturação esperada no final de 2027");
+
+const adjusted = computeRetainer({
+  proposalYear: 2027,
+  clientStatus: "atual",
+  docOrganization: "desorganizada",
+  docCount: 150,
+  docMedium: "fisico",
+  turnover: 200000,
+  manualAdjust: -10,
+});
+assert.equal(adjusted.turnoverCaption, "Faturação de 2026");
+assert.equal(adjusted.monthly, 335);
+assert.equal(adjusted.parts.find((part) => part.label.startsWith("Faturação"))?.monthly, 60);
+assert.equal(historyWindow(2027).join(","), "2022,2023,2024,2025,2026");
 
 console.log("Tabela de preços conferida.");
 console.log(

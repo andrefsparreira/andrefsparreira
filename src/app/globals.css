@@ -7,17 +7,69 @@ body {
   color: #1c2430;
 }
 
+@media screen {
+  .slide-deck {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.75rem;
+  }
+
+  .print-sheet {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 1080px);
+    aspect-ratio: 16 / 9;
+    overflow: auto;
+  }
+
+  .print-sheet > * {
+    flex: 1 0 auto;
+  }
+}
+
 @media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
   .no-print {
     display: none !important;
   }
 
+  html,
   body {
-    background: white;
+    background: white !important;
+  }
+
+  .app-main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .slide-deck {
+    display: block;
   }
 
   .print-sheet {
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    aspect-ratio: auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
     break-after: page;
+    page-break-after: always;
+    break-inside: auto;
+  }
+
+  .print-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 }

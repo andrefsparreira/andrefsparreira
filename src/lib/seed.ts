@@ -81,20 +81,35 @@ export async function seedIfEmpty(query: Query) {
   );
   const clientId = Number(inserted[0]?.id);
 
-  const year = async (value: number, note: string) => {
+  const year = async (value: number, note: string, monthly: number | null) => {
     const row = await query<{ id: number }>(
-      "INSERT INTO fee_years (client_id, year, note) VALUES ($1, $2, $3) RETURNING id",
-      [clientId, value, note],
+      `INSERT INTO fee_years (client_id, year, note, monthly_retainer)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [clientId, value, note, monthly],
     );
     return Number(row[0]?.id);
   };
 
-  await year(2025, "Ano anterior sem valores no modelo Excel. O histórico fica disponível para lançamentos.");
+  for (const past of [2022, 2023, 2024, 2025]) {
+    await year(past, "Avença mensal já praticada. O modelo Excel não traz este ano; o valor fica por lançar.", null);
+  }
   const y2026 = await year(
     2026,
     "Referência lida da folha Honorários, com a situação a 01/05/2026. O ficheiro não distingue um preço de 2026 face a 2027.",
+    150,
   );
-  const y2027 = await year(2027, "Ano alvo da proposta. Linhas inicializadas com os valores do modelo.");
+  const y2027 = await year(2027, "Ano alvo da proposta. Linhas inicializadas com os valores do modelo.", 150);
+  await query(
+    `UPDATE fee_years SET
+      client_status = 'novo',
+      doc_organization = 'organizada',
+      doc_count = 30,
+      doc_medium = 'digital',
+      turnover = 40000,
+      manual_adjust = 0
+     WHERE id = $1`,
+    [y2027],
+  );
   const lines = modeloLinhas({ exampleValues: true, employees: client.employeesExManager });
   await insertDrafts(query, y2026, lines);
   await insertDrafts(query, y2027, lines);
