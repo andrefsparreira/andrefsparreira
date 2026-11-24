@@ -2,6 +2,7 @@ import Link from "next/link";
 import { eur } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
 import { getLines, getVatRate, getYear, listClients } from "@/lib/queries";
+import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  if (!(await requireViewer())) return null;
   const { q = "" } = await searchParams;
   const clients = await listClients(q);
   const vat = await getVatRate();

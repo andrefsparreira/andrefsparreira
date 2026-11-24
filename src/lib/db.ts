@@ -3,6 +3,7 @@ import path from "node:path";
 import type { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
 import { ensureRetainerCatalog, seedIfEmpty } from "./seed";
+import { requireViewer } from "./viewer";
 
 export type Query = <T extends Record<string, unknown> = Record<string, unknown>>(
   text: string,
@@ -90,15 +91,29 @@ export function ready(): Promise<void> {
   return starting;
 }
 
+async function assertViewer() {
+  try {
+    const viewer = await requireViewer();
+    if (!viewer) throw new Error("Sessão em falta.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("Sessão em falta.")) throw error;
+    if (message.includes("request scope") || message.includes("outside a request")) return;
+    throw error;
+  }
+}
+
 export async function sql<T extends Record<string, unknown> = Record<string, unknown>>(
   text: string,
   params: unknown[] = [],
 ): Promise<T[]> {
+  await assertViewer();
   await ready();
   return raw<T>(text, params);
 }
 
 export async function withTransaction<T>(fn: (query: Query) => Promise<T>): Promise<T> {
+  await assertViewer();
   await ready();
   if (databaseUrl !== "") {
     pool ??= new pg.Pool({ connectionString: databaseUrl, max: 5 });

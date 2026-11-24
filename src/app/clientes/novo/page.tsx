@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/app/actions";
 import { ClientForm } from "@/components/ClientForm";
+import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ export default async function NewClientPage({
 }: {
   searchParams: Promise<{ erro?: string }>;
 }) {
+  if (!(await requireViewer())) return null;
   const { erro } = await searchParams;
   return (
     <div>

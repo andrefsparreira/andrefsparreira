@@ -9,6 +9,7 @@ import { RetainerParameters } from "@/components/RetainerParameters";
 import { eur, formatDatePT } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
 import { findProposal, getClient, getLines, getRetainerBase, getVatRate, getYear, listRetainerCatalog, listTypes, listYearChoices, listYears, retainerHistory } from "@/lib/queries";
+import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function ClientPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ano?: string; ok?: string; erro?: string }>;
 }) {
+  if (!(await requireViewer())) return null;
   const { id } = await params;
   const sp = await searchParams;
   const client = await getClient(Number(id));

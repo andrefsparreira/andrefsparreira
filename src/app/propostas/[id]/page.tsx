@@ -4,6 +4,7 @@ import { resetProposalTexts } from "@/app/actions";
 import { ProposalEditor } from "@/components/ProposalEditor";
 import { computeSummary } from "@/lib/pricing";
 import { getClient, getLines, getProposal, getVatRate, getYear, retainerHistory } from "@/lib/queries";
+import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function ProposalPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ editar?: string; ok?: string }>;
 }) {
+  if (!(await requireViewer())) return null;
   const { id } = await params;
   const sp = await searchParams;
   const proposal = await getProposal(Number(id));

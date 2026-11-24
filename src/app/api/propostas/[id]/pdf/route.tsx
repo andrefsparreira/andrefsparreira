@@ -4,7 +4,7 @@ import { formatLongDate } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
 import { getClient, getLines, getProposal, getVatRate, getYear, retainerHistory } from "@/lib/queries";
 import { ProposalDocument, publicFile } from "@/pdf/ProposalPdf";
-import { requireIdentity } from "@/lib/viewer";
+import { requireIdentity, requireViewer } from "@/lib/viewer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const identity = await requireIdentity(_request);
   if (identity instanceof Response) return identity;
+  if (!(await requireViewer())) return new NextResponse("Sessão em falta.", { status: 401 });
   const { id } = await context.params;
   const proposal = await getProposal(Number(id));
   if (!proposal) return new NextResponse("Proposta não encontrada", { status: 404 });

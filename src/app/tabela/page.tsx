@@ -3,6 +3,7 @@ import { RetainerParameters } from "@/components/RetainerParameters";
 import { eur, INCLUSION_LABEL, PERIOD_LABEL, RULE_LABEL } from "@/lib/format";
 import { RU_TIERS, TARIFF_NOTES } from "@/lib/pricing";
 import { getRetainerBase, listRetainerCatalog, listTypes } from "@/lib/queries";
+import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export default async function TariffPage({
 }: {
   searchParams: Promise<{ ok?: string; erro?: string }>;
 }) {
+  if (!(await requireViewer())) return null;
   const sp = await searchParams;
   const types = await listTypes(true);
   const catalog = await listRetainerCatalog();
