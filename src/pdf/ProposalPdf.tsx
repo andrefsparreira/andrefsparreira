@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from "@react-pdf/renderer";
-import { eur, pct } from "@/lib/format";
+import { eur } from "@/lib/format";
 import { RU_TIERS, type ComputedLine, type RuTier, type Summary } from "@/lib/pricing";
 import { slidesOf } from "@/lib/slides";
 import type { ProposalSection, RetainerSnapshot } from "@/lib/types";
@@ -24,8 +24,8 @@ const paper = "#f6f3ee";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 78,
-    paddingBottom: 32,
+    paddingTop: 104,
+    paddingBottom: 36,
     paddingHorizontal: 32,
     fontFamily: "Helvetica",
     fontSize: 10,
@@ -83,7 +83,7 @@ export function ProposalDocument({
   history: RetainerSnapshot[];
   ruTiers?: readonly RuTier[];
 }) {
-  const pages = slidesOf(sections).flatMap((section) => {
+  const pages = sections.flatMap((section) => {
     if (section.kind === "cover") {
       return [
         <Page key={section.id} size="A4" orientation="landscape" style={styles.cover}>
@@ -91,21 +91,28 @@ export function ProposalDocument({
         </Page>,
       ];
     }
-    const slide = (key: string, title: string, body: ReactNode, wrap = true) => (
-      <Page key={key} size="A4" orientation="landscape" style={styles.page} wrap={wrap}>
+    const slide = (key: string, title: string, body: ReactNode, mode: "center" | "fill" | "flow" = "center") => (
+      <Page key={key} size="A4" orientation="landscape" style={styles.page} wrap>
         <Header logoSrc={logoSrc} />
         <Text style={styles.h1} fixed>{title}</Text>
-        {body}
+        <View style={mode === "flow" ? undefined : { flex: 1, justifyContent: mode === "center" ? "center" : "flex-start" }}>
+          {body}
+        </View>
         <PageNumber />
       </Page>
     );
-    if (section.kind === "honorarios") {
-      return [
-        slide(`${section.id}-historico`, "Avenças já praticadas", <HistoryBars rows={history} year={year} />),
-        slide(section.id, section.title, <FeeTable summary={summary} intro={section.intro} />),
-      ];
+    if (section.kind === "conditions") {
+      return [slide(section.id, section.title, <ConditionsFlow section={section} />, "flow")];
     }
-    return [slide(section.id, section.title, <SectionBody section={section} summary={summary} ruHeadcount={ruHeadcount} ruTiers={ruTiers} />)];
+    return slidesOf([section]).flatMap((part) => {
+      if (part.kind === "honorarios") {
+        return [
+          slide(`${part.id}-historico`, "Avenças já praticadas", <HistoryBars rows={history} year={year} />),
+          slide(part.id, part.title, <FeeTable summary={summary} intro={part.intro} />, "fill"),
+        ];
+      }
+      return [slide(part.id, part.title, <SectionBody section={part} summary={summary} ruHeadcount={ruHeadcount} ruTiers={ruTiers} />)];
+    });
   });
 
   return (
@@ -209,21 +216,7 @@ function SectionBody({
     );
   }
   if (section.kind === "columns") {
-    return (
-      <View>
-        <Text style={{ fontSize: 10, color: muted, marginBottom: 8 }}>{section.subtitle}</Text>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          {section.columns.map((column) => (
-            <View key={column.title} style={{ flex: 1, backgroundColor: paper, padding: 8, borderRadius: 4 }}>
-              <Text style={styles.h2}>{column.title}</Text>
-              {column.items.map((item) => (
-                <Text key={item} style={styles.small}>• {item}</Text>
-              ))}
-            </View>
-          ))}
-        </View>
-      </View>
-    );
+    return <StepRow subtitle={section.subtitle} columns={section.columns} />;
   }
   if (section.kind === "honorarios") {
     return <FeeTable summary={summary} intro={section.intro} />;
@@ -231,23 +224,13 @@ function SectionBody({
   if (section.kind === "ru") {
     return (
       <View>
-        <Text style={styles.body}>{section.intro}</Text>
+        {section.intro ? <Text style={[styles.body, { textAlign: "center", marginBottom: 16 }]}>{section.intro}</Text> : null}
         <RuBars headcount={ruHeadcount} tiers={ruTiers} />
       </View>
     );
   }
   if (section.kind === "conditions") {
-    return (
-      <View>
-        <Text style={styles.body}>{section.lead}</Text>
-        {section.clauses.map((clause) => (
-          <View key={clause.titulo} style={{ marginTop: 8 }}>
-            <Text style={styles.h2}>{clause.titulo}</Text>
-            <Text style={[styles.small, { textAlign: "justify" }]}>{clause.corpo}</Text>
-          </View>
-        ))}
-      </View>
-    );
+    return <ConditionsFlow section={section} />;
   }
   if (section.kind === "signature") {
     return (
@@ -285,53 +268,120 @@ function annualText(line: ComputedLine): string {
   return euro(line.annualAmount);
 }
 
+const FEE_FLEX = [1.8, 1, 1, 1, 1, 1];
+
+function FeeCell({ flex, children, header, align }: { flex: number; children: string; header?: boolean; align: "left" | "center" }) {
+  return (
+    <View style={{ flex, paddingHorizontal: 4, justifyContent: "center", backgroundColor: header ? navy : undefined }}>
+      <Text style={{ fontSize: header ? 8 : 9, color: header ? "#ffffff" : "#1c2430", fontFamily: header ? "Helvetica-Bold" : "Helvetica", textAlign: align }}>
+        {children}
+      </Text>
+    </View>
+  );
+}
+
 function FeeTable({ summary, intro }: { summary: Summary; intro: string }) {
   const headers = ["Serviço", "Mensal", "Trimestral", "Anual", "One Shot", "Valor anual"];
-  const widths = [188, 112, 112, 100, 112, 114];
+  const contentHeight = 595.28 - 104 - 40;
+  const chrome = (intro ? 28 : 0) + 28;
+  const rowHeight = Math.max(20, (contentHeight - chrome) / Math.max(summary.lines.length, 1));
   return (
-    <View>
-      {intro ? <Text style={{ fontSize: 9, marginBottom: 6 }}>{intro}</Text> : null}
-      <View style={{ flexDirection: "row" }}>
+    <View style={{ flex: 1, paddingTop: 8 }}>
+      {intro ? <Text style={{ fontSize: 10, marginBottom: 12, textAlign: "center" }}>{intro}</Text> : null}
+      <View style={{ flexDirection: "row", backgroundColor: navy, minHeight: 22, alignItems: "center" }}>
         {headers.map((header, index) => (
-          <Text key={header} style={[styles.th, { width: widths[index] }]}>{header}</Text>
+          <FeeCell key={header} flex={FEE_FLEX[index] ?? 1} header align="center">{header}</FeeCell>
         ))}
       </View>
-      {summary.lines.map((line, index) => {
+      {summary.lines.map((fee, index) => {
         const cells = ["—", "—", "—", "—"];
-        const value = periodText(line);
-        if (line.periodicity === "mensal") cells[0] = value;
-        if (line.periodicity === "trimestral") cells[1] = value;
-        if (line.periodicity === "anual") cells[2] = value;
-        if (line.periodicity === "one_shot") cells[3] = value;
-        const shown = [line.description, ...cells, annualText(line)];
+        const value = periodText(fee);
+        if (fee.periodicity === "mensal") cells[0] = value;
+        if (fee.periodicity === "trimestral") cells[1] = value;
+        if (fee.periodicity === "anual") cells[2] = value;
+        if (fee.periodicity === "one_shot") cells[3] = value;
+        const shown = [fee.description, ...cells, annualText(fee)];
         return (
-          <View key={`${line.description}-${index}`} style={{ flexDirection: "row", alignItems: "center", backgroundColor: index % 2 ? paper : "#ffffff" }}>
+          <View key={`${fee.description}-${index}`} style={{ flexDirection: "row", alignItems: "center", height: rowHeight, backgroundColor: index % 2 ? paper : "#ffffff", borderBottomWidth: 0.4, borderBottomColor: line }}>
             {shown.map((cell, cellIndex) => (
-              <Text key={`${line.description}-${cellIndex}`} style={[styles.td, { width: widths[cellIndex], textAlign: cellIndex === 0 ? "left" : "right" }]}>
+              <FeeCell key={`${fee.description}-${cellIndex}`} flex={FEE_FLEX[cellIndex] ?? 1} align={cellIndex === 0 ? "left" : "center"}>
                 {cell}
-              </Text>
+              </FeeCell>
             ))}
           </View>
         );
       })}
-      <View style={{ marginTop: 6 }}>
-        <Text style={{ fontSize: 8 }}>Correntes {euro(summary.subtotalCorrente)} · Opcionais {euro(summary.subtotalOpcional)} · IVA {pct(summary.vatRate)} {euro(summary.vatCorrente)} · Total com IVA {euro(summary.totalCorrenteComIva)} · Com opcionais {euro(summary.totalComOpcionais)}</Text>
-      </View>
     </View>
   );
 }
 
 function RuBars({ headcount, tiers }: { headcount: number | null; tiers: readonly RuTier[] }) {
-  const max = tiers[tiers.length - 1]?.annual || 1;
+  const max = Math.max(1, ...tiers.map((tier) => tier.annual));
   const active = tiers.find((tier) => headcount != null && headcount >= tier.min && (tier.max == null || headcount <= tier.max));
+  const chartHeight = 230;
   return (
-    <View style={{ marginTop: 10 }}>
-      <Text style={styles.h2}>Escalões · colaboradores sem o sócio-gerente: {headcount ?? 0}</Text>
-      {tiers.map((tier) => (
-        <View key={tier.label} style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
-          <Text style={{ width: 90, fontSize: 8, color: active?.label === tier.label ? "#8d2f39" : "#1c2430" }}>{tier.label}</Text>
-          <View style={{ width: Math.max((tier.annual / max) * 240, 2), height: 8, backgroundColor: active?.label === tier.label ? "#8d2f39" : navy }} />
-          <Text style={{ marginLeft: 6, fontSize: 8 }}>{eur(tier.annual)}</Text>
+    <View style={{ alignItems: "center" }}>
+      <Text style={[styles.h2, { textAlign: "center", marginBottom: 18 }]}>Escalões · colaboradores sem o sócio-gerente: {headcount ?? 0}</Text>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "center" }}>
+        {tiers.map((tier) => {
+          const on = active?.label === tier.label;
+          return (
+            <View key={tier.label} style={{ width: 108, alignItems: "center", marginHorizontal: 6 }}>
+              <Text style={{ fontSize: 11, marginBottom: 8, fontFamily: "Helvetica-Bold", color: on ? "#8d2f39" : navy }}>{eur(tier.annual)}</Text>
+              <View style={{ width: 62, height: Math.max((tier.annual / max) * chartHeight, 14), backgroundColor: on ? "#8d2f39" : navy }} />
+              <Text style={{ fontSize: 9, marginTop: 8, textAlign: "center" }}>{tier.label}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function StepRow({ subtitle, columns }: { subtitle: string; columns: { title: string; items: string[] }[] }) {
+  return (
+    <View>
+      {subtitle ? <Text style={{ fontSize: 10, color: muted, textAlign: "center", marginBottom: 14 }}>{subtitle}</Text> : null}
+      <View style={{ flexDirection: "row", alignItems: "stretch" }}>
+        {columns.map((column, index) => (
+          <View key={column.title} style={{ flex: 1, flexDirection: "row", alignItems: "stretch" }}>
+            <View style={{ flex: 1, borderWidth: 1.2, borderColor: navy, backgroundColor: paper, paddingHorizontal: 8, paddingVertical: 10 }}>
+              <Text style={{ fontSize: 11, color: navy, fontFamily: "Helvetica-Bold", textAlign: "center", marginBottom: 8 }}>{column.title}</Text>
+              {column.items.map((item) => (
+                <Text key={item} style={{ fontSize: 8, lineHeight: 1.35, marginBottom: 4 }}>• {item}</Text>
+              ))}
+            </View>
+            {index < columns.length - 1 ? <FlowArrow /> : <View style={{ width: 22 }} />}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function FlowArrow() {
+  return (
+    <View style={{ width: 22, justifyContent: "center", alignItems: "center" }}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ width: 10, height: 2, backgroundColor: navy }} />
+        <View style={{ width: 0, height: 0, borderTopWidth: 5, borderBottomWidth: 5, borderLeftWidth: 7, borderTopColor: "transparent", borderBottomColor: "transparent", borderLeftColor: navy }} />
+      </View>
+    </View>
+  );
+}
+
+function ConditionsFlow({ section }: { section: Extract<ProposalSection, { kind: "conditions" }> }) {
+  return (
+    <View style={{ paddingTop: 8 }}>
+      {section.lead.trim() ? (
+        <Text style={{ fontSize: 11, lineHeight: 1.45, textAlign: "justify", marginBottom: 16 }}>{section.lead}</Text>
+      ) : null}
+      {section.clauses.map((clause) => (
+        <View key={clause.titulo} style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, color: navy, fontFamily: "Helvetica-Bold", marginBottom: 8 }} minPresenceAhead={36}>{clause.titulo}</Text>
+          {clause.corpo.split(/\n+/).filter((paragraph) => paragraph.trim()).map((paragraph, index) => (
+            <Text key={`${clause.titulo}-${index}`} style={{ fontSize: 10, lineHeight: 1.45, textAlign: "justify", marginBottom: 6 }}>{paragraph.trim()}</Text>
+          ))}
         </View>
       ))}
     </View>
