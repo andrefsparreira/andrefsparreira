@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #f3efe7;
+  color: #1c2430;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+  }
+
+  .print-sheet {
+    box-shadow: none !important;
+    break-after: page;
+  }
+}
