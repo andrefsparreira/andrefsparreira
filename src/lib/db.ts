@@ -11,13 +11,14 @@ export type Query = <T extends Record<string, unknown> = Record<string, unknown>
 ) => Promise<T[]>;
 
 const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
-let pool: pg.Pool | undefined;
-let local: PGlite | undefined;
-let starting: Promise<void> | undefined;
+const memory = globalThis as unknown as { ksPool?: pg.Pool; ksLocal?: PGlite; ksStarting?: Promise<void> };
+let pool = memory.ksPool;
+let local = memory.ksLocal;
+let starting = memory.ksStarting;
 
 async function raw<T extends Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
   if (databaseUrl !== "") {
-    pool ??= new pg.Pool({ connectionString: databaseUrl, max: 5 });
+    memory.ksPool = pool ??= new pg.Pool({ connectionString: databaseUrl, max: 5 });
     const result = await pool.query(text, params);
     return result.rows as T[];
   }
@@ -60,7 +61,7 @@ async function init() {
     for (const file of await migrationFiles()) {
       await db.exec(await readFile(path.join(dir, file), "utf8"));
     }
-    local = db;
+    memory.ksLocal = local = db;
     await ensureRetainerCatalog(raw);
     await seedIfEmpty(raw);
     return;
@@ -84,8 +85,8 @@ async function init() {
 }
 
 export function ready(): Promise<void> {
-  starting ??= init().catch((error: unknown) => {
-    starting = undefined;
+  memory.ksStarting = starting ??= init().catch((error: unknown) => {
+    memory.ksStarting = starting = undefined;
     throw error;
   });
   return starting;
@@ -116,7 +117,7 @@ export async function withTransaction<T>(fn: (query: Query) => Promise<T>): Prom
   await assertViewer();
   await ready();
   if (databaseUrl !== "") {
-    pool ??= new pg.Pool({ connectionString: databaseUrl, max: 5 });
+    memory.ksPool = pool ??= new pg.Pool({ connectionString: databaseUrl, max: 5 });
     const client = await pool.connect();
     const query = (async (text, params = []) => (await client.query(text, params)).rows) as Query;
     try {

@@ -7,6 +7,35 @@ body {
   color: #1c2430;
 }
 
+.barra {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+}
+
+.barra::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #002060;
+  border: 2px solid #fffcf8;
+  box-shadow: 0 1px 3px rgba(0, 32, 96, 0.35);
+  cursor: grab;
+}
+
+.barra::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #fffcf8;
+  border-radius: 999px;
+  background: #002060;
+  cursor: grab;
+}
+
 @media screen {
   .slide-deck {
     display: flex;
