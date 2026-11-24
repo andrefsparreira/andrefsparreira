@@ -18,15 +18,16 @@ export default async function ClientPage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const client = getClient(Number(id));
+  const client = await getClient(Number(id));
   if (!client) notFound();
-  const years = listYears(client.id);
+  const years = await listYears(client.id);
   const requested = Number(sp.ano || 2027);
   const year = years.find((item) => item.year === requested) ?? years[years.length - 1] ?? null;
-  const lines = year ? getLines(year.id) : [];
-  const types = listTypes();
-  const summary = computeSummary(lines, getVatRate());
-  const proposal = year ? findProposal(client.id, year.year) : null;
+  const lines = year ? await getLines(year.id) : [];
+  const types = await listTypes();
+  const vatRate = await getVatRate();
+  const summary = computeSummary(lines, vatRate);
+  const proposal = year ? await findProposal(client.id, year.year) : null;
 
   return (
     <div className="space-y-8">
@@ -120,7 +121,7 @@ export default async function ClientPage({
               yearId={year.id}
               lines={lines}
               types={types}
-              vatRate={getVatRate()}
+              vatRate={vatRate}
               employees={client.employeesExManager}
             />
           </>

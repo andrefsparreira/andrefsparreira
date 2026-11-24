@@ -11,8 +11,15 @@ export default async function HomePage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
-  const clients = listClients(q);
-  const vat = getVatRate();
+  const clients = await listClients(q);
+  const vat = await getVatRate();
+  const rows = await Promise.all(
+    clients.map(async (client) => {
+      const year = await getYear(client.id, 2027);
+      const summary = computeSummary(year ? await getLines(year.id) : [], vat);
+      return { client, year, summary };
+    }),
+  );
 
   return (
     <div>
@@ -57,9 +64,7 @@ export default async function HomePage({
               </tr>
             </thead>
             <tbody>
-              {clients.map((client) => {
-                const year = getYear(client.id, 2027);
-                const summary = computeSummary(year ? getLines(year.id) : [], vat);
+              {rows.map(({ client, year, summary }) => {
                 return (
                   <tr key={client.id} className="border-t border-line">
                     <td className="px-4 py-3">

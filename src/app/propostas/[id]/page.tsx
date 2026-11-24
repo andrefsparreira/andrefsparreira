@@ -16,13 +16,13 @@ export default async function ProposalPage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const proposal = getProposal(Number(id));
+  const proposal = await getProposal(Number(id));
   if (!proposal) notFound();
-  const client = getClient(proposal.clientId);
+  const client = await getClient(proposal.clientId);
   if (!client) notFound();
-  const year = getYear(client.id, proposal.year);
-  const lines = year ? getLines(year.id) : [];
-  const summary = computeSummary(lines, getVatRate());
+  const year = await getYear(client.id, proposal.year);
+  const lines = year ? await getLines(year.id) : [];
+  const summary = computeSummary(lines, await getVatRate());
 
   return (
     <div>

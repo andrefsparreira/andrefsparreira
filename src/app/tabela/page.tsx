@@ -13,7 +13,7 @@ export default async function TariffPage({
   searchParams: Promise<{ ok?: string; erro?: string }>;
 }) {
   const sp = await searchParams;
-  const types = listTypes(true);
+  const types = await listTypes(true);
 
   return (
     <div className="space-y-8">

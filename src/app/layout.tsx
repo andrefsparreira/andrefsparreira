@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireViewer } from "@/lib/viewer";
 import "./globals.css";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: {
@@ -10,7 +13,23 @@ export const metadata: Metadata = {
   description: "Cálculo de avenças e propostas de prestação de serviços para 2027.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const viewer = await requireViewer();
+  if (!viewer) {
+    return (
+      <html lang="pt-PT">
+        <body className="min-h-screen bg-paper font-sans text-ink">
+          <main className="mx-auto max-w-xl px-4 py-16">
+            <h1 className="font-serif text-3xl text-navy">Sessão necessária</h1>
+            <p className="mt-3 text-muted">
+              Esta aplicação trata dados de clientes. Abra-a como aplicação privada ou de equipa e entre com a conta Cursor.
+            </p>
+          </main>
+        </body>
+      </html>
+    );
+  }
+
   return (
     <html lang="pt-PT">
       <body className="min-h-screen font-sans">

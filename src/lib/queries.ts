@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { sql } from "./db";
 import { DEFAULT_VAT_RATE } from "./pricing";
 import type {
   Client,
@@ -32,7 +32,7 @@ type ClientRow = {
 
 function mapClient(row: ClientRow): Client {
   return {
-    id: row.id,
+    id: Number(row.id),
     name: row.name,
     nif: row.nif,
     legalForm: row.legal_form,
@@ -43,48 +43,50 @@ function mapClient(row: ClientRow): Client {
     partners: row.partners,
     bankAccounts: row.bank_accounts,
     expectedTurnover: row.expected_turnover,
-    employeesExManager: row.employees_ex_manager,
+    employeesExManager: Number(row.employees_ex_manager ?? 0),
     situationDate: row.situation_date,
     notes: row.notes,
     logoPath: row.logo_path,
   };
 }
 
-export function listClients(query: string): Client[] {
+export async function listClients(query: string): Promise<Client[]> {
   const q = `%${query.trim()}%`;
-  const rows = getDb()
-    .prepare(
-      `SELECT * FROM clients
-       WHERE name LIKE ? COLLATE NOCASE OR nif LIKE ?
-       ORDER BY name COLLATE NOCASE`,
-    )
-    .all(q, q) as ClientRow[];
+  const rows = await sql<ClientRow>(
+    `SELECT * FROM clients
+     WHERE name ILIKE $1 OR nif ILIKE $2
+     ORDER BY name`,
+    [q, q],
+  );
   return rows.map(mapClient);
 }
 
-export function getClient(id: number): Client | null {
-  const row = getDb().prepare("SELECT * FROM clients WHERE id = ?").get(id) as ClientRow | undefined;
-  return row ? mapClient(row) : null;
+export async function getClient(id: number): Promise<Client | null> {
+  const rows = await sql<ClientRow>("SELECT * FROM clients WHERE id = $1", [id]);
+  return rows[0] ? mapClient(rows[0]) : null;
 }
 
-export function listYears(clientId: number): FeeYear[] {
-  const rows = getDb()
-    .prepare("SELECT id, client_id, year, note FROM fee_years WHERE client_id = ? ORDER BY year")
-    .all(clientId) as { id: number; client_id: number; year: number; note: string }[];
+export async function listYears(clientId: number): Promise<FeeYear[]> {
+  const rows = await sql<{ id: number; client_id: number; year: number; note: string }>(
+    "SELECT id, client_id, year, note FROM fee_years WHERE client_id = $1 ORDER BY year",
+    [clientId],
+  );
   return rows.map((row) => ({
-    id: row.id,
-    clientId: row.client_id,
-    year: row.year,
+    id: Number(row.id),
+    clientId: Number(row.client_id),
+    year: Number(row.year),
     note: row.note,
   }));
 }
 
-export function getYear(clientId: number, year: number): FeeYear | null {
-  const row = getDb()
-    .prepare("SELECT id, client_id, year, note FROM fee_years WHERE client_id = ? AND year = ?")
-    .get(clientId, year) as { id: number; client_id: number; year: number; note: string } | undefined;
+export async function getYear(clientId: number, year: number): Promise<FeeYear | null> {
+  const rows = await sql<{ id: number; client_id: number; year: number; note: string }>(
+    "SELECT id, client_id, year, note FROM fee_years WHERE client_id = $1 AND year = $2",
+    [clientId, year],
+  );
+  const row = rows[0];
   if (!row) return null;
-  return { id: row.id, clientId: row.client_id, year: row.year, note: row.note };
+  return { id: Number(row.id), clientId: Number(row.client_id), year: Number(row.year), note: row.note };
 }
 
 type LineRow = {
@@ -105,35 +107,32 @@ type LineRow = {
 
 function mapLine(row: LineRow): FeeLine {
   return {
-    id: row.id,
-    yearId: row.year_id,
-    sortOrder: row.sort_order,
+    id: Number(row.id),
+    yearId: Number(row.year_id),
+    sortOrder: Number(row.sort_order),
     typeCode: row.type_code,
     description: row.description,
     periodicity: row.periodicity as Periodicity,
     quantity: row.quantity,
     inclusion: row.inclusion as Inclusion,
-    optional: row.optional === 1,
+    optional: Number(row.optional) === 1,
     unitValue: row.unit_value,
-    manual: row.manual === 1,
+    manual: Number(row.manual) === 1,
     pricingRule: row.pricing_rule as PricingRule,
     notes: row.notes,
   };
 }
 
-export function getLines(yearId: number): FeeLine[] {
-  const rows = getDb()
-    .prepare("SELECT * FROM fee_lines WHERE year_id = ? ORDER BY sort_order, id")
-    .all(yearId) as LineRow[];
+export async function getLines(yearId: number): Promise<FeeLine[]> {
+  const rows = await sql<LineRow>(
+    "SELECT * FROM fee_lines WHERE year_id = $1 ORDER BY sort_order, id",
+    [yearId],
+  );
   return rows.map(mapLine);
 }
 
-export function listTypes(includeInactive = false): ServiceType[] {
-  const rows = getDb()
-    .prepare(
-      `SELECT * FROM service_types ${includeInactive ? "" : "WHERE active = 1"} ORDER BY sort_order, label`,
-    )
-    .all() as {
+export async function listTypes(includeInactive = false): Promise<ServiceType[]> {
+  const rows = await sql<{
     code: string;
     label: string;
     default_periodicity: string;
@@ -143,35 +142,26 @@ export function listTypes(includeInactive = false): ServiceType[] {
     default_unit_value: number | null;
     sort_order: number;
     active: number;
-  }[];
+  }>(
+    `SELECT * FROM service_types ${includeInactive ? "" : "WHERE active = 1"} ORDER BY sort_order, label`,
+  );
   return rows.map((row) => ({
     code: row.code,
     label: row.label,
     defaultPeriodicity: row.default_periodicity as Periodicity,
     pricingRule: row.pricing_rule as PricingRule,
     defaultInclusion: row.default_inclusion as Inclusion,
-    defaultOptional: row.default_optional === 1,
+    defaultOptional: Number(row.default_optional) === 1,
     defaultUnitValue: row.default_unit_value,
-    sortOrder: row.sort_order,
-    active: row.active === 1,
+    sortOrder: Number(row.sort_order),
+    active: Number(row.active) === 1,
   }));
 }
 
-export function getVatRate(): number {
-  const row = getDb().prepare("SELECT value FROM settings WHERE key = 'vat_rate'").get() as
-    | { value: string }
-    | undefined;
-  const n = row ? Number(row.value) : DEFAULT_VAT_RATE;
+export async function getVatRate(): Promise<number> {
+  const rows = await sql<{ value: string }>("SELECT value FROM settings WHERE key = 'vat_rate'");
+  const n = rows[0] ? Number(rows[0].value) : DEFAULT_VAT_RATE;
   return Number.isFinite(n) ? n : DEFAULT_VAT_RATE;
-}
-
-export function setVatRate(rate: number) {
-  getDb()
-    .prepare(
-      `INSERT INTO settings (key, value) VALUES ('vat_rate', ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-    )
-    .run(String(rate));
 }
 
 type ProposalRow = {
@@ -181,29 +171,28 @@ type ProposalRow = {
   proposal_date: string;
   title: string;
   sections_json: string;
-  updated_at: string;
+  updated_at: string | Date;
 };
 
 function mapProposal(row: ProposalRow): Proposal {
+  const updated = row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at);
   return {
-    id: row.id,
-    clientId: row.client_id,
-    year: row.year,
+    id: Number(row.id),
+    clientId: Number(row.client_id),
+    year: Number(row.year),
     proposalDate: row.proposal_date,
     title: row.title,
     sections: JSON.parse(row.sections_json) as ProposalSection[],
-    updatedAt: row.updated_at,
+    updatedAt: updated,
   };
 }
 
-export function findProposal(clientId: number, year: number): Proposal | null {
-  const row = getDb()
-    .prepare("SELECT * FROM proposals WHERE client_id = ? AND year = ?")
-    .get(clientId, year) as ProposalRow | undefined;
-  return row ? mapProposal(row) : null;
+export async function findProposal(clientId: number, year: number): Promise<Proposal | null> {
+  const rows = await sql<ProposalRow>("SELECT * FROM proposals WHERE client_id = $1 AND year = $2", [clientId, year]);
+  return rows[0] ? mapProposal(rows[0]) : null;
 }
 
-export function getProposal(id: number): Proposal | null {
-  const row = getDb().prepare("SELECT * FROM proposals WHERE id = ?").get(id) as ProposalRow | undefined;
-  return row ? mapProposal(row) : null;
+export async function getProposal(id: number): Promise<Proposal | null> {
+  const rows = await sql<ProposalRow>("SELECT * FROM proposals WHERE id = $1", [id]);
+  return rows[0] ? mapProposal(rows[0]) : null;
 }

@@ -4,19 +4,22 @@ import { formatLongDate } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
 import { getClient, getLines, getProposal, getVatRate, getYear } from "@/lib/queries";
 import { ProposalDocument, publicFile } from "@/pdf/ProposalPdf";
+import { requireIdentity } from "@/lib/viewer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const identity = await requireIdentity(_request);
+  if (identity instanceof Response) return identity;
   const { id } = await context.params;
-  const proposal = getProposal(Number(id));
+  const proposal = await getProposal(Number(id));
   if (!proposal) return new NextResponse("Proposta não encontrada", { status: 404 });
-  const client = getClient(proposal.clientId);
+  const client = await getClient(proposal.clientId);
   if (!client) return new NextResponse("Cliente não encontrado", { status: 404 });
-  const year = getYear(client.id, proposal.year);
-  const lines = year ? getLines(year.id) : [];
-  const summary = computeSummary(lines, getVatRate());
+  const year = await getYear(client.id, proposal.year);
+  const lines = year ? await getLines(year.id) : [];
+  const summary = computeSummary(lines, await getVatRate());
   const logo = publicFile("/brand/ks-logo.png");
   if (!logo) return new NextResponse("Logótipo em falta", { status: 500 });
   const ru = summary.lines.find((line) => line.pricingRule === "ru_tier");

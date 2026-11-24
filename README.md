@@ -12,7 +12,7 @@ npm run dev
 
 Abrir [http://localhost:3000](http://localhost:3000).
 
-`npm run seed` cria a base se ainda não existirem clientes. `npm run seed:reset` repõe o cliente de exemplo. A base fica em `data/ks.sqlite`.
+`npm run seed` cria os dados de exemplo se ainda não existirem clientes. `npm run seed:reset` repõe o exemplo. Sem `DATABASE_URL`, a base fica em memória neste processo. Na publicação, os dados ficam na base Postgres da aplicação.
 
 ## Exemplo
 
