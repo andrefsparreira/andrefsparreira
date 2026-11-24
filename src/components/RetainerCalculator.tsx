@@ -4,43 +4,78 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveRetainerAssessment } from "@/app/actions";
 import { eur, parseDecimal } from "@/lib/format";
-import {
-  BASE_MONTHLY_RETAINER,
-  computeRetainer,
-  DOC_MEDIUM,
-  DOC_ORGANIZATION,
-  DOC_VOLUME,
-  TURNOVER_BANDS,
-} from "@/lib/pricing";
-import type { ClientStatus, DocMedium, DocOrganization, FeeYear } from "@/lib/types";
+import { computeBaseRetainer, periodLabel } from "@/lib/pricing";
+import type { BasePeriod, ClientStatus, FeeYear, RetainerChoice, RetainerParameter } from "@/lib/types";
 
 const input = "mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-navy";
 
-export function RetainerCalculator({ year, fallbackTurnover }: { year: FeeYear; fallbackTurnover: number | null }) {
+function initialChoice(
+  parameter: RetainerParameter,
+  saved: RetainerChoice | undefined,
+  year: FeeYear,
+  fallbackTurnover: number | null,
+): { valueId: number | null; numeric: string } {
+  if (saved) {
+    return { valueId: saved.valueId, numeric: saved.numeric == null ? "" : String(saved.numeric).replace(".", ",") };
+  }
+  if (parameter.kind === "opcao") {
+    const neutral = parameter.values.find((value) => value.amount === 0) ?? parameter.values[0];
+    return { valueId: neutral?.id ?? null, numeric: "" };
+  }
+  let numeric: number | null = null;
+  if (/document/i.test(parameter.name)) numeric = year.docCount;
+  if (/fatura/i.test(parameter.name)) numeric = year.turnover ?? fallbackTurnover;
+  return { valueId: null, numeric: numeric == null ? "" : String(numeric).replace(".", ",") };
+}
+
+export function RetainerCalculator({
+  year,
+  fallbackTurnover,
+  baseAmount,
+  parameters,
+  choices,
+}: {
+  year: FeeYear;
+  fallbackTurnover: number | null;
+  baseAmount: number;
+  parameters: RetainerParameter[];
+  choices: RetainerChoice[];
+}) {
   const router = useRouter();
   const [status, setStatus] = useState<ClientStatus>(year.clientStatus);
-  const [organization, setOrganization] = useState<DocOrganization>(year.docOrganization);
-  const [docCount, setDocCount] = useState(year.docCount == null ? "" : String(year.docCount));
-  const [medium, setMedium] = useState<DocMedium>(year.docMedium);
-  const [turnover, setTurnover] = useState(
-    year.turnover == null ? (fallbackTurnover == null ? "" : String(fallbackTurnover)) : String(year.turnover),
-  );
+  const [period, setPeriod] = useState<BasePeriod>(year.basePeriod);
   const [manual, setManual] = useState(year.manualAdjust ? String(year.manualAdjust).replace(".", ",") : "");
+  const [selected, setSelected] = useState<Record<number, { valueId: number | null; numeric: string }>>(() =>
+    Object.fromEntries(
+      parameters.map((parameter) => [
+        parameter.id,
+        initialChoice(
+          parameter,
+          choices.find((choice) => choice.parameterId === parameter.id),
+          year,
+          fallbackTurnover,
+        ),
+      ]),
+    ),
+  );
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
 
+  const selections: RetainerChoice[] = parameters.map((parameter) => ({
+    parameterId: parameter.id,
+    valueId: selected[parameter.id]?.valueId ?? null,
+    numeric: parameter.kind === "escalao" ? parseDecimal(selected[parameter.id]?.numeric ?? "") : null,
+  }));
   const quote = useMemo(
     () =>
-      computeRetainer({
-        proposalYear: year.year,
-        clientStatus: status,
-        docOrganization: organization,
-        docCount: parseDecimal(docCount),
-        docMedium: medium,
-        turnover: parseDecimal(turnover),
+      computeBaseRetainer({
+        baseAmount,
+        period,
+        parameters,
+        selections,
         manualAdjust: parseDecimal(manual) ?? 0,
       }),
-    [year.year, status, organization, docCount, medium, turnover, manual],
+    [baseAmount, period, parameters, selected, manual],
   );
 
   function save() {
@@ -49,99 +84,99 @@ export function RetainerCalculator({ year, fallbackTurnover }: { year: FeeYear; 
       const result = await saveRetainerAssessment({
         yearId: year.id,
         clientStatus: status,
-        docOrganization: organization,
-        docCount: parseDecimal(docCount),
-        docMedium: medium,
-        turnover: parseDecimal(turnover),
+        period,
         manualAdjust: parseDecimal(manual) ?? 0,
+        selections,
       });
       if (!result.ok) {
         setMessage(result.error);
         return;
       }
-      setMessage(`Avença de ${year.year} guardada: ${eur(result.monthly)} por mês.`);
+      setMessage(`Avença base de ${year.year} guardada: ${eur(result.amount)} por ${periodLabel(result.period)}.`);
       router.refresh();
     });
   }
 
   return (
     <section className="rounded-xl border border-line bg-card p-5">
-      <h3 className="font-serif text-2xl text-navy">Cálculo da avença de {year.year}</h3>
+      <h3 className="font-serif text-2xl text-navy">Cálculo da avença base de {year.year}</h3>
       <p className="mt-2 max-w-3xl text-sm text-muted">
-        A base é {eur(BASE_MONTHLY_RETAINER)} por mês. Esse valor já cobre documentação digital, organizada, até 40
-        documentos por mês e faturação anual até 50.000 €. A documentação digital é a situação mais acessível; papel,
-        volume, desorganização e faturação mais alta aumentam a avença. O ajuste manual pode reduzir ou aumentar o resultado.
+        Parte de {eur(baseAmount)} por {periodLabel(period)}. Os parâmetros acima ajustam só esta avença base. A
+        periodicidade pode ser mensal ou trimestral. O ajuste manual pode reduzir ou aumentar o resultado.
       </p>
-
       <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <label className="text-sm">
+          Periodicidade da avença base
+          <select className={input} value={period} onChange={(event) => setPeriod(event.target.value as BasePeriod)}>
+            <option value="mensal">Mensal</option>
+            <option value="trimestral">Trimestral</option>
+          </select>
+        </label>
         <label className="text-sm">
           Situação do cliente
           <select className={input} value={status} onChange={(event) => setStatus(event.target.value as ClientStatus)}>
-            <option value="atual">Cliente atual — faturação do ano anterior</option>
-            <option value="novo">Cliente novo — faturação esperada no final do ano</option>
+            <option value="atual">Cliente atual — a faturação é a do ano anterior</option>
+            <option value="novo">Cliente novo — a faturação é a esperada no final do ano</option>
           </select>
         </label>
-        <label className="text-sm">
-          Organização da documentação
-          <select
-            className={input}
-            value={organization}
-            onChange={(event) => setOrganization(event.target.value as DocOrganization)}
-          >
-            {DOC_ORGANIZATION.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label} ({item.monthly === 0 ? "incluído na base" : `+${eur(item.monthly)}`})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          Quantidade média de documentos por mês
-          <input
-            className={input}
-            inputMode="numeric"
-            value={docCount}
-            placeholder="ex.: 30"
-            onChange={(event) => setDocCount(event.target.value)}
-          />
-        </label>
-        <label className="text-sm">
-          Suporte da documentação
-          <select className={input} value={medium} onChange={(event) => setMedium(event.target.value as DocMedium)}>
-            {DOC_MEDIUM.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label} ({item.monthly === 0 ? "incluído na base" : `+${eur(item.monthly)}`})
-              </option>
-            ))}
-          </select>
-        </label>
+        {parameters.map((parameter) => {
+          const current = selected[parameter.id];
+          const caption =
+            /fatura/i.test(parameter.name) && status === "novo"
+              ? `${parameter.name} esperada no final de ${year.year}`
+              : /fatura/i.test(parameter.name)
+                ? `${parameter.name} de ${year.year - 1}`
+                : parameter.name;
+          if (parameter.kind === "opcao") {
+            return (
+              <label key={parameter.id} className="text-sm">
+                {caption}
+                <select
+                  className={input}
+                  value={current?.valueId ?? ""}
+                  onChange={(event) =>
+                    setSelected((map) => ({
+                      ...map,
+                      [parameter.id]: { valueId: Number(event.target.value), numeric: current?.numeric ?? "" },
+                    }))
+                  }
+                >
+                  {parameter.values.map((value) => (
+                    <option key={value.id} value={value.id}>
+                      {value.label} ({value.amount === 0 ? "incluído na base" : `${value.amount > 0 ? "+" : ""}${eur(value.amount)}`})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
+          }
+          return (
+            <label key={parameter.id} className="text-sm">
+              {caption}
+              <input
+                className={input}
+                inputMode="decimal"
+                value={current?.numeric ?? ""}
+                onChange={(event) =>
+                  setSelected((map) => ({
+                    ...map,
+                    [parameter.id]: { valueId: null, numeric: event.target.value },
+                  }))
+                }
+              />
+            </label>
+          );
+        })}
         <label className="text-sm md:col-span-2">
-          {quote.turnoverCaption}
-          <input
-            className={input}
-            inputMode="decimal"
-            value={turnover}
-            placeholder="ex.: 40000"
-            onChange={(event) => setTurnover(event.target.value)}
-          />
-        </label>
-        <label className="text-sm md:col-span-2">
-          Ajuste manual (€ por mês, negativo para desconto)
-          <input
-            className={input}
-            inputMode="decimal"
-            value={manual}
-            placeholder="0"
-            onChange={(event) => setManual(event.target.value)}
-          />
+          Ajuste manual (€ por {periodLabel(period)}, negativo para desconto)
+          <input className={input} inputMode="decimal" value={manual} placeholder="0" onChange={(event) => setManual(event.target.value)} />
         </label>
       </div>
-
       <div className="mt-5 overflow-hidden rounded-xl border border-line bg-white">
         <table className="w-full border-collapse text-sm">
           <tbody>
             <tr className="border-b border-line">
-              <td className="px-3 py-2">Base mensal</td>
+              <td className="px-3 py-2">Avença base</td>
               <td className="px-3 py-2 text-right tabular-nums">{eur(quote.base)}</td>
             </tr>
             {quote.parts.map((part) => (
@@ -151,51 +186,25 @@ export function RetainerCalculator({ year, fallbackTurnover }: { year: FeeYear; 
                   <span className="mt-0.5 block text-xs text-muted">{part.detail}</span>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
-                  {part.monthly > 0 ? "+" : ""}
-                  {eur(part.monthly)}
+                  {part.amount > 0 ? "+" : ""}
+                  {eur(part.amount)}
                 </td>
               </tr>
             ))}
             <tr className="bg-paper">
-              <td className="px-3 py-3 font-medium text-navy">Avença mensal</td>
-              <td className="px-3 py-3 text-right font-serif text-xl text-navy tabular-nums">{eur(quote.monthly)}</td>
+              <td className="px-3 py-3 font-medium text-navy">Avença por {periodLabel(period)}</td>
+              <td className="px-3 py-3 text-right font-serif text-xl text-navy tabular-nums">{eur(quote.periodAmount)}</td>
             </tr>
             <tr>
-              <td className="px-3 py-2 text-muted">Equivalente anual (× 12)</td>
+              <td className="px-3 py-2 text-muted">Equivalente anual (× {period === "trimestral" ? 4 : 12})</td>
               <td className="px-3 py-2 text-right tabular-nums">{eur(quote.annual)}</td>
             </tr>
           </tbody>
         </table>
       </div>
-
-      <details className="mt-3 text-sm text-muted">
-        <summary className="cursor-pointer text-navy">Ver escalões de documentos e de faturação</summary>
-        <div className="mt-3 grid gap-4 md:grid-cols-2">
-          <ul className="space-y-1">
-            {DOC_VOLUME.map((band) => (
-              <li key={band.label}>
-                {band.label}: {band.monthly === 0 ? "incluído" : `+${eur(band.monthly)}`}
-              </li>
-            ))}
-          </ul>
-          <ul className="space-y-1">
-            {TURNOVER_BANDS.map((band) => (
-              <li key={band.label}>
-                {band.label}: {band.monthly === 0 ? "incluído" : `+${eur(band.monthly)}`}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </details>
-
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={pending}
-          className="rounded-md bg-navy px-4 py-2 text-sm text-white disabled:opacity-60"
-        >
-          {pending ? "A guardar…" : "Guardar e aplicar à avença mensal"}
+        <button type="button" onClick={save} disabled={pending} className="rounded-md bg-navy px-4 py-2 text-sm text-white disabled:opacity-60">
+          {pending ? "A guardar…" : "Guardar e aplicar à avença base"}
         </button>
         {message ? <p className="text-sm text-navy">{message}</p> : null}
       </div>

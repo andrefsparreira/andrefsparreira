@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
-import { seedIfEmpty } from "./seed";
+import { ensureRetainerCatalog, seedIfEmpty } from "./seed";
 
 export type Query = <T extends Record<string, unknown> = Record<string, unknown>>(
   text: string,
@@ -35,6 +35,7 @@ async function init() {
     }
     local = db;
   }
+  await ensureRetainerCatalog(raw);
   await seedIfEmpty(raw);
 }
 

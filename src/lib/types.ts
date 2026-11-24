@@ -42,6 +42,33 @@ export type ClientStatus = "atual" | "novo";
 export type DocOrganization = "organizada" | "alguma" | "desorganizada" | "muito_desorganizada";
 export type DocMedium = "digital" | "misto" | "fisico";
 
+export type BasePeriod = "mensal" | "trimestral";
+export type RetainerKind = "opcao" | "escalao";
+
+export type RetainerValue = {
+  id: number;
+  parameterId: number;
+  label: string;
+  amount: number;
+  rangeMin: number | null;
+  rangeMax: number | null;
+  sortOrder: number;
+};
+
+export type RetainerParameter = {
+  id: number;
+  name: string;
+  kind: RetainerKind;
+  sortOrder: number;
+  values: RetainerValue[];
+};
+
+export type RetainerChoice = {
+  parameterId: number;
+  valueId: number | null;
+  numeric: number | null;
+};
+
 export type FeeYear = {
   id: number;
   clientId: number;
@@ -54,6 +81,7 @@ export type FeeYear = {
   docMedium: DocMedium;
   turnover: number | null;
   manualAdjust: number;
+  basePeriod: BasePeriod;
 };
 
 export type RetainerSnapshot = {
@@ -93,7 +121,7 @@ export type LineDraft = {
 
 export type ProposalSection =
   | { id: string; kind: "cover"; title: string; kicker: string; tagline: string }
-  | { id: string; kind: "prose"; title: string; body: string }
+  | { id: string; kind: "prose"; title: string; body: string; align?: "left" | "justify" }
   | { id: string; kind: "bullets"; title: string; intro: string; bullets: string[] }
   | {
       id: string;

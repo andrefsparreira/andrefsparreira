@@ -108,8 +108,8 @@ export function HistorySlide({ rows, proposalYear }: { rows: RetainerSnapshot[];
   const max = Math.max(1, ...rows.map((row) => row.monthly ?? 0));
   return (
     <div className="p-8 md:p-10">
-      <p className="text-xs font-medium uppercase tracking-wide text-navy">Últimos 5 anos</p>
-      <h2 className="mt-2 font-serif text-3xl text-navy">Avenças já praticadas</h2>
+      <img src="/brand/ks-logo.png" alt="" className="ml-auto h-7 w-auto" />
+      <h2 className="mt-6 font-serif text-3xl text-navy">Avenças já praticadas</h2>
       <p className="mt-3 text-sm text-muted">Valores mensais anteriores à proposta de {proposalYear}.</p>
       <div className="mt-6 space-y-3">
         {rows.map((row) => (

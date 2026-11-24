@@ -12,7 +12,11 @@ import type {
   PricingRule,
   Proposal,
   ProposalSection,
+  RetainerChoice,
+  RetainerKind,
+  RetainerParameter,
   RetainerSnapshot,
+  RetainerValue,
   ServiceType,
 } from "./types";
 
@@ -82,10 +86,11 @@ type YearRow = {
   doc_medium: string;
   turnover: number | null;
   manual_adjust: number | null;
+  base_period: string | null;
 };
 
 const YEAR_COLUMNS = `id, client_id, year, note, monthly_retainer, client_status, doc_organization,
-  doc_count, doc_medium, turnover, manual_adjust`;
+  doc_count, doc_medium, turnover, manual_adjust, base_period`;
 
 function mapYear(row: YearRow): FeeYear {
   const status: ClientStatus = row.client_status === "novo" ? "novo" : "atual";
@@ -108,6 +113,7 @@ function mapYear(row: YearRow): FeeYear {
     docMedium: medium,
     turnover: row.turnover,
     manualAdjust: Number(row.manual_adjust ?? 0),
+    basePeriod: row.base_period === "trimestral" ? "trimestral" : "mensal",
   };
 }
 
@@ -232,6 +238,60 @@ export async function listTypes(includeInactive = false): Promise<ServiceType[]>
     defaultUnitValue: row.default_unit_value,
     sortOrder: Number(row.sort_order),
     active: Number(row.active) === 1,
+  }));
+}
+
+export async function getRetainerBase(): Promise<number> {
+  const rows = await sql<{ value: string }>("SELECT value FROM settings WHERE key = 'retainer_base'");
+  const amount = rows[0] ? Number(rows[0].value) : 150;
+  return Number.isFinite(amount) ? amount : 150;
+}
+
+export async function listRetainerCatalog(): Promise<RetainerParameter[]> {
+  const parameters = await sql<{ id: number; name: string; kind: string; sort_order: number }>(
+    "SELECT id, name, kind, sort_order FROM retainer_parameters WHERE active = 1 ORDER BY sort_order, id",
+  );
+  const values = await sql<{
+    id: number;
+    parameter_id: number;
+    label: string;
+    amount: number;
+    range_min: number | null;
+    range_max: number | null;
+    sort_order: number;
+  }>("SELECT id, parameter_id, label, amount, range_min, range_max, sort_order FROM retainer_values ORDER BY sort_order, id");
+  return parameters.map((parameter) => {
+    const kind: RetainerKind = parameter.kind === "escalao" ? "escalao" : "opcao";
+    const items: RetainerValue[] = values
+      .filter((value) => Number(value.parameter_id) === Number(parameter.id))
+      .map((value) => ({
+        id: Number(value.id),
+        parameterId: Number(value.parameter_id),
+        label: value.label,
+        amount: Number(value.amount),
+        rangeMin: value.range_min,
+        rangeMax: value.range_max,
+        sortOrder: Number(value.sort_order),
+      }));
+    return {
+      id: Number(parameter.id),
+      name: parameter.name,
+      kind,
+      sortOrder: Number(parameter.sort_order),
+      values: items,
+    };
+  });
+}
+
+export async function listYearChoices(yearId: number): Promise<RetainerChoice[]> {
+  const rows = await sql<{ parameter_id: number; value_id: number | null; numeric_value: number | null }>(
+    "SELECT parameter_id, value_id, numeric_value FROM fee_year_choices WHERE year_id = $1",
+    [yearId],
+  );
+  return rows.map((row) => ({
+    parameterId: Number(row.parameter_id),
+    valueId: row.value_id == null ? null : Number(row.value_id),
+    numeric: row.numeric_value,
   }));
 }
 

@@ -1,5 +1,16 @@
 import { eur, round2 } from "./format";
-import type { ClientStatus, DocMedium, DocOrganization, Inclusion, Periodicity, PricingRule } from "./types";
+import type {
+  BasePeriod,
+  DocMedium,
+  DocOrganization,
+  Inclusion,
+  Periodicity,
+  PricingRule,
+  RetainerChoice,
+  RetainerKind,
+  RetainerParameter,
+  RetainerValue,
+} from "./types";
 
 /**
  * Parâmetros lidos de proposta-modelo.xlsx.
@@ -352,74 +363,136 @@ export const TURNOVER_BANDS: { max: number | null; label: string; monthly: numbe
   { max: null, label: "Acima de 1.000.000 €", monthly: 180 },
 ];
 
-export type RetainerInput = {
-  proposalYear: number;
-  clientStatus: ClientStatus;
-  docOrganization: DocOrganization;
-  docCount: number | null;
-  docMedium: DocMedium;
-  turnover: number | null;
-  manualAdjust: number;
-};
-
-export type RetainerPart = { label: string; detail: string; monthly: number };
+export type RetainerPart = { label: string; detail: string; amount: number };
 
 export type RetainerQuote = {
   base: number;
+  period: BasePeriod;
   parts: RetainerPart[];
-  monthly: number;
+  periodAmount: number;
   annual: number;
-  turnoverCaption: string;
 };
 
 export function historyWindow(proposalYear: number): number[] {
   return Array.from({ length: HISTORY_YEARS }, (_, index) => proposalYear - HISTORY_YEARS + index);
 }
 
-function bandMonthly(
-  bands: { max: number | null; label: string; monthly: number }[],
-  value: number,
-): { label: string; monthly: number } {
-  const found = bands.find((band) => band.max == null || value <= band.max);
-  return found ?? { label: bands[bands.length - 1]?.label ?? "", monthly: bands[bands.length - 1]?.monthly ?? 0 };
+export function periodsPerYear(period: BasePeriod): number {
+  return period === "trimestral" ? 4 : 12;
 }
 
-export function computeRetainer(input: RetainerInput): RetainerQuote {
-  const organization = DOC_ORGANIZATION.find((item) => item.id === input.docOrganization) ?? DOC_ORGANIZATION[0]!;
-  const medium = DOC_MEDIUM.find((item) => item.id === input.docMedium) ?? DOC_MEDIUM[0]!;
-  const count = input.docCount;
-  const volume =
-    count == null || !Number.isFinite(count) || count < 0
-      ? { label: "Quantidade por indicar", monthly: 0 }
-      : bandMonthly(DOC_VOLUME, count);
-  const turnoverValue = input.turnover;
-  const turnover =
-    turnoverValue == null || !Number.isFinite(turnoverValue) || turnoverValue < 0
-      ? { label: "Faturação por indicar", monthly: 0 }
-      : bandMonthly(TURNOVER_BANDS, turnoverValue);
-  const manual = Number.isFinite(input.manualAdjust) ? round2(input.manualAdjust) : 0;
-  const turnoverCaption =
-    input.clientStatus === "novo"
-      ? `Faturação esperada no final de ${input.proposalYear}`
-      : `Faturação de ${input.proposalYear - 1}`;
+export function periodLabel(period: BasePeriod): string {
+  return period === "trimestral" ? "trimestre" : "mês";
+}
 
-  const parts: RetainerPart[] = [
-    { label: "Organização da documentação", detail: organization.label, monthly: organization.monthly },
-    {
-      label: "Quantidade de documentos",
-      detail: count == null ? volume.label : `${volume.label} (${count})`,
-      monthly: volume.monthly,
-    },
-    { label: "Suporte da documentação", detail: medium.label, monthly: medium.monthly },
-    { label: turnoverCaption, detail: turnover.label, monthly: turnover.monthly },
-    { label: "Ajuste manual", detail: manual === 0 ? "Nenhum" : eur(manual), monthly: manual },
-  ];
-  const monthly = round2(Math.max(0, BASE_MONTHLY_RETAINER + parts.reduce((sum, part) => sum + part.monthly, 0)));
+function valueOf(
+  kind: RetainerKind,
+  label: string,
+  amount: number,
+  sortOrder: number,
+  rangeMin: number | null = null,
+  rangeMax: number | null = null,
+  id = sortOrder,
+): RetainerValue {
+  return { id, parameterId: 0, label, amount, rangeMin, rangeMax, sortOrder };
+}
+
+export function defaultRetainerCatalog(): RetainerParameter[] {
+  const organization: RetainerParameter = {
+    id: 1,
+    name: "Organização da documentação",
+    kind: "opcao",
+    sortOrder: 10,
+    values: DOC_ORGANIZATION.map((item, index) => valueOf("opcao", item.label, item.monthly, (index + 1) * 10)),
+  };
+  const volume: RetainerParameter = {
+    id: 2,
+    name: "Quantidade de documentos",
+    kind: "escalao",
+    sortOrder: 20,
+    values: [
+      valueOf("escalao", DOC_VOLUME[0]!.label, DOC_VOLUME[0]!.monthly, 10, 0, 40),
+      valueOf("escalao", DOC_VOLUME[1]!.label, DOC_VOLUME[1]!.monthly, 20, 41, 120),
+      valueOf("escalao", DOC_VOLUME[2]!.label, DOC_VOLUME[2]!.monthly, 30, 121, 300),
+      valueOf("escalao", DOC_VOLUME[3]!.label, DOC_VOLUME[3]!.monthly, 40, 301, null),
+    ],
+  };
+  const medium: RetainerParameter = {
+    id: 3,
+    name: "Suporte da documentação",
+    kind: "opcao",
+    sortOrder: 30,
+    values: DOC_MEDIUM.map((item, index) => valueOf("opcao", item.label, item.monthly, (index + 1) * 10)),
+  };
+  const turnover: RetainerParameter = {
+    id: 4,
+    name: "Faturação anual",
+    kind: "escalao",
+    sortOrder: 40,
+    values: [
+      valueOf("escalao", TURNOVER_BANDS[0]!.label, TURNOVER_BANDS[0]!.monthly, 10, 0, 50_000),
+      valueOf("escalao", TURNOVER_BANDS[1]!.label, TURNOVER_BANDS[1]!.monthly, 20, 50_001, 150_000),
+      valueOf("escalao", TURNOVER_BANDS[2]!.label, TURNOVER_BANDS[2]!.monthly, 30, 150_001, 400_000),
+      valueOf("escalao", TURNOVER_BANDS[3]!.label, TURNOVER_BANDS[3]!.monthly, 40, 400_001, 1_000_000),
+      valueOf("escalao", TURNOVER_BANDS[4]!.label, TURNOVER_BANDS[4]!.monthly, 50, 1_000_001, null),
+    ],
+  };
+  for (const parameter of [organization, volume, medium, turnover]) {
+    for (const value of parameter.values) value.parameterId = parameter.id;
+  }
+  return [organization, volume, medium, turnover];
+}
+
+function matchingBand(values: RetainerValue[], numeric: number | null): RetainerValue | null {
+  if (numeric == null || !Number.isFinite(numeric) || numeric < 0) return null;
+  const ordered = [...values].sort((a, b) => a.sortOrder - b.sortOrder);
+  return (
+    ordered.find(
+      (value) =>
+        (value.rangeMin == null || numeric >= value.rangeMin) &&
+        (value.rangeMax == null || numeric <= value.rangeMax),
+    ) ?? null
+  );
+}
+
+export function computeBaseRetainer(input: {
+  baseAmount: number;
+  period: BasePeriod;
+  parameters: RetainerParameter[];
+  selections: RetainerChoice[];
+  manualAdjust: number;
+}): RetainerQuote {
+  const period: BasePeriod = input.period === "trimestral" ? "trimestral" : "mensal";
+  const base = Number.isFinite(input.baseAmount) ? round2(Math.max(0, input.baseAmount)) : 0;
+  const parts: RetainerPart[] = [];
+  for (const parameter of [...input.parameters].sort((a, b) => a.sortOrder - b.sortOrder)) {
+    const selection = input.selections.find((item) => item.parameterId === parameter.id);
+    if (parameter.kind === "opcao") {
+      const chosen = parameter.values.find((value) => value.id === selection?.valueId) ?? null;
+      parts.push({
+        label: parameter.name,
+        detail: chosen?.label ?? "Por escolher",
+        amount: chosen?.amount ?? 0,
+      });
+      continue;
+    }
+    const band = matchingBand(parameter.values, selection?.numeric ?? null);
+    const shown =
+      selection?.numeric == null
+        ? "Valor por indicar"
+        : band
+          ? `${band.label} (${selection.numeric})`
+          : `${selection.numeric} · sem escalão`;
+    parts.push({ label: parameter.name, detail: shown, amount: band?.amount ?? 0 });
+  }
+  const manual = Number.isFinite(input.manualAdjust) ? round2(input.manualAdjust) : 0;
+  parts.push({ label: "Ajuste manual", detail: manual === 0 ? "Nenhum" : eur(manual), amount: manual });
+  const periodAmount = round2(Math.max(0, base + parts.reduce((sum, part) => sum + part.amount, 0)));
   return {
-    base: BASE_MONTHLY_RETAINER,
+    base,
+    period,
     parts,
-    monthly,
-    annual: round2(monthly * 12),
-    turnoverCaption,
+    periodAmount,
+    annual: round2(periodAmount * periodsPerYear(period)),
   };
 }

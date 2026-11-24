@@ -5,9 +5,10 @@ import { ClientForm } from "@/components/ClientForm";
 import { FeeEditor } from "@/components/FeeEditor";
 import { RetainerCalculator } from "@/components/RetainerCalculator";
 import { RetainerHistory } from "@/components/RetainerHistory";
+import { RetainerParameters } from "@/components/RetainerParameters";
 import { eur, formatDatePT } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
-import { findProposal, getClient, getLines, getVatRate, getYear, listTypes, listYears, retainerHistory } from "@/lib/queries";
+import { findProposal, getClient, getLines, getRetainerBase, getVatRate, getYear, listRetainerCatalog, listTypes, listYearChoices, listYears, retainerHistory } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,9 @@ export default async function ClientPage({
   const year = years.find((item) => item.year === requested) ?? years[years.length - 1] ?? null;
   const lines = year ? await getLines(year.id) : [];
   const types = await listTypes();
+  const catalog = await listRetainerCatalog();
+  const baseAmount = await getRetainerBase();
+  const choices = year ? await listYearChoices(year.id) : [];
   const vatRate = await getVatRate();
   const summary = computeSummary(lines, vatRate);
   const proposal = year ? await findProposal(client.id, year.year) : null;
@@ -122,10 +126,18 @@ export default async function ClientPage({
         </form>
         {year ? (
           <>
+            <RetainerParameters
+              key={catalog.map((parameter) => `${parameter.id}:${parameter.values.map((value) => value.amount).join(",")}`).join("|") + baseAmount}
+              baseAmount={baseAmount}
+              parameters={catalog}
+            />
             <RetainerCalculator
-              key={`calc-${year.id}-${year.manualAdjust}-${year.docCount}-${year.turnover}-${year.clientStatus}`}
+              key={`calc-${year.id}-${year.basePeriod}-${choices.map((choice) => `${choice.parameterId}:${choice.valueId}:${choice.numeric}`).join("|")}-${baseAmount}`}
               year={year}
               fallbackTurnover={year.year === 2027 ? client.expectedTurnover : null}
+              baseAmount={baseAmount}
+              parameters={catalog}
+              choices={choices}
             />
             <form action={loadModelLines}>
               <input type="hidden" name="clientId" value={client.id} />

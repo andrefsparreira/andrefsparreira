@@ -1,7 +1,7 @@
 import type { Query } from "./db";
 import { EXAMPLE_CLIENT, modeloLinhas, SERVICE_TYPES } from "./example";
 import { todayISO } from "./format";
-import { DEFAULT_VAT_RATE } from "./pricing";
+import { DEFAULT_VAT_RATE, defaultRetainerCatalog } from "./pricing";
 import { buildProposalSections } from "./template";
 import type { LineDraft } from "./types";
 
@@ -29,6 +29,49 @@ export async function insertDrafts(query: Query, yearId: number, lines: LineDraf
       line.notes,
     ]);
   }
+}
+
+export async function ensureRetainerCatalog(query: Query) {
+  const count = await query<{ n: number }>("SELECT COUNT(*)::int AS n FROM retainer_parameters");
+  if (Number(count[0]?.n ?? 0) > 0) return;
+  for (const parameter of defaultRetainerCatalog()) {
+    const inserted = await query<{ id: number }>(
+      "INSERT INTO retainer_parameters (name, kind, sort_order) VALUES ($1, $2, $3) RETURNING id",
+      [parameter.name, parameter.kind, parameter.sortOrder],
+    );
+    const parameterId = Number(inserted[0]?.id);
+    for (const value of parameter.values) {
+      await query(
+        `INSERT INTO retainer_values (parameter_id, label, amount, range_min, range_max, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [parameterId, value.label, value.amount, value.rangeMin, value.rangeMax, value.sortOrder],
+      );
+    }
+  }
+}
+
+async function choose(
+  query: Query,
+  yearId: number,
+  parameterName: string,
+  valueLabel: string | null,
+  numeric: number | null,
+) {
+  const parameters = await query<{ id: number }>("SELECT id FROM retainer_parameters WHERE name = $1", [parameterName]);
+  const parameterId = Number(parameters[0]?.id);
+  if (!parameterId) return;
+  const values = valueLabel
+    ? await query<{ id: number }>(
+        "SELECT id FROM retainer_values WHERE parameter_id = $1 AND label = $2",
+        [parameterId, valueLabel],
+      )
+    : [];
+  await query(
+    `INSERT INTO fee_year_choices (year_id, parameter_id, value_id, numeric_value)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (year_id, parameter_id) DO NOTHING`,
+    [yearId, parameterId, values[0] ? Number(values[0].id) : null, numeric],
+  );
 }
 
 export async function seedIfEmpty(query: Query) {
@@ -106,10 +149,15 @@ export async function seedIfEmpty(query: Query) {
       doc_count = 30,
       doc_medium = 'digital',
       turnover = 40000,
-      manual_adjust = 0
+      manual_adjust = 0,
+      base_period = 'mensal'
      WHERE id = $1`,
     [y2027],
   );
+  await choose(query, y2027, "Organização da documentação", "Organizada", null);
+  await choose(query, y2027, "Quantidade de documentos", null, 30);
+  await choose(query, y2027, "Suporte da documentação", "Digital", null);
+  await choose(query, y2027, "Faturação anual", null, 40000);
   const lines = modeloLinhas({ exampleValues: true, employees: client.employeesExManager });
   await insertDrafts(query, y2026, lines);
   await insertDrafts(query, y2027, lines);

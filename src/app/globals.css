@@ -26,12 +26,38 @@ body {
   .print-sheet > * {
     flex: 1 0 auto;
   }
+
+  .page-no {
+    display: none;
+  }
 }
 
 @media print {
   @page {
     size: A4 landscape;
-    margin: 10mm;
+    margin: 0;
+  }
+
+  .slide-deck {
+    counter-reset: slide;
+  }
+
+  .print-sheet:not(.print-cover) {
+    counter-increment: slide;
+    position: relative;
+  }
+
+  .page-no {
+    display: block;
+    position: absolute;
+    right: 10mm;
+    bottom: 6mm;
+    font-size: 10pt;
+    color: #5e6874;
+  }
+
+  .page-no::after {
+    content: counter(slide);
   }
 
   .no-print {

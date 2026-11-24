@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { ReactNode } from "react";
 import {
   Document,
   Font,
@@ -9,7 +10,8 @@ import {
   View,
 } from "@react-pdf/renderer";
 import { eur, pct } from "@/lib/format";
-import { RU_TIERS, type Summary } from "@/lib/pricing";
+import { RU_TIERS, type ComputedLine, type Summary } from "@/lib/pricing";
+import { slidesOf } from "@/lib/slides";
 import type { ProposalSection, RetainerSnapshot } from "@/lib/types";
 
 Font.registerHyphenationCallback((word) => [word]);
@@ -21,9 +23,9 @@ const paper = "#f6f3ee";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 36,
-    paddingBottom: 42,
-    paddingHorizontal: 36,
+    paddingTop: 78,
+    paddingBottom: 32,
+    paddingHorizontal: 32,
     fontFamily: "Helvetica",
     fontSize: 10,
     color: "#1c2430",
@@ -36,14 +38,13 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: "absolute",
-    bottom: 16,
-    left: 36,
-    right: 36,
-    fontSize: 8,
+    bottom: 12,
+    right: 28,
+    fontSize: 9,
     color: muted,
   },
-  kicker: { fontSize: 9, color: navy, letterSpacing: 1, textTransform: "uppercase" },
-  h1: { fontSize: 22, color: navy, fontFamily: "Helvetica-Bold", marginBottom: 8 },
+  kicker: { fontSize: 11, color: "#8d2f39", letterSpacing: 1, textTransform: "uppercase", marginBottom: 14 },
+  h1: { position: "absolute", top: 50, left: 32, right: 36, fontSize: 18, color: navy, fontFamily: "Helvetica-Bold" },
   h2: { fontSize: 12, color: navy, fontFamily: "Helvetica-Bold", marginBottom: 4 },
   body: { fontSize: 11, lineHeight: 1.45, marginTop: 8 },
   bullet: { fontSize: 11, lineHeight: 1.4, marginBottom: 4 },
@@ -79,50 +80,44 @@ export function ProposalDocument({
   ruHeadcount: number | null;
   history: RetainerSnapshot[];
 }) {
-  const pages = sections.flatMap((section) => {
+  const pages = slidesOf(sections).flatMap((section) => {
     if (section.kind === "cover") {
       return [
         <Page key={section.id} size="A4" orientation="landscape" style={styles.cover}>
           <Cover section={section} dateLabel={dateLabel} logoSrc={logoSrc} clientLogoSrc={clientLogoSrc} />
-          <SlideFooter year={year} clientName={clientName} />
         </Page>,
       ];
     }
-    const slide = (
-      <Page key={section.id} size="A4" orientation="landscape" style={styles.page} wrap>
-        <Header clientName={clientName} logoSrc={logoSrc} />
-        <Text style={styles.h1}>{section.title}</Text>
-        <SectionBody section={section} summary={summary} ruHeadcount={ruHeadcount} />
-        <SlideFooter year={year} clientName={clientName} />
+    const slide = (key: string, title: string, body: ReactNode, wrap = true) => (
+      <Page key={key} size="A4" orientation="landscape" style={styles.page} wrap={wrap}>
+        <Header logoSrc={logoSrc} />
+        <Text style={styles.h1} fixed>{title}</Text>
+        {body}
+        <PageNumber />
       </Page>
     );
-    if (section.kind !== "honorarios") return [slide];
-    return [
-      <Page key={`${section.id}-historico`} size="A4" orientation="landscape" style={styles.page}>
-        <Header clientName={clientName} logoSrc={logoSrc} />
-        <Text style={styles.h1}>Avenças já praticadas</Text>
-        <HistoryBars rows={history} year={year} />
-        <SlideFooter year={year} clientName={clientName} />
-      </Page>,
-      slide,
-    ];
+    if (section.kind === "honorarios") {
+      return [
+        slide(`${section.id}-historico`, "Avenças já praticadas", <HistoryBars rows={history} year={year} />),
+        slide(section.id, section.title, <FeeTable summary={summary} intro={section.intro} />),
+      ];
+    }
+    return [slide(section.id, section.title, <SectionBody section={section} summary={summary} ruHeadcount={ruHeadcount} />)];
   });
 
   return (
-    <Document title={`Proposta ${year} · ${clientName}`} author="KS Consultores">
+    <Document title={`Proposta ${year} · ${clientName}`} author="KS Consultores" creator="KS Consultores" producer="KS Consultores">
       {pages}
     </Document>
   );
 }
 
-function SlideFooter({ year, clientName }: { year: number; clientName: string }) {
+function PageNumber() {
   return (
     <Text
       style={styles.footer}
       fixed
-      render={({ pageNumber, totalPages }) =>
-        `KS Consultores · Proposta ${year} · ${clientName} · ${pageNumber} / ${totalPages}`
-      }
+      render={({ pageNumber }) => String(pageNumber - 1)}
     />
   );
 }
@@ -145,11 +140,10 @@ function HistoryBars({ rows, year }: { rows: RetainerSnapshot[]; year: number })
   );
 }
 
-function Header({ clientName, logoSrc }: { clientName: string; logoSrc: string }) {
+function Header({ logoSrc }: { logoSrc: string }) {
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-      <Image src={logoSrc} style={{ height: 22, width: 120, objectFit: "contain" }} />
-      <Text style={{ fontSize: 8, color: navy }}>{clientName}</Text>
+    <View fixed style={{ position: "absolute", top: 16, right: 32, height: 20, width: 110, alignItems: "flex-end" }}>
+      <Image src={logoSrc} style={{ height: 18, width: 100, objectFit: "contain" }} />
     </View>
   );
 }
@@ -166,19 +160,19 @@ function Cover({
   clientLogoSrc: string | null;
 }) {
   return (
-    <View style={{ flexDirection: "row", height: "100%" }}>
-      <View style={{ flex: 1.35, padding: 42, justifyContent: "space-between" }}>
-        <Image src={logoSrc} style={{ height: 42, width: 210, objectFit: "contain" }} />
-        <View>
-          <Text style={{ fontSize: 11, color: "#8d2f39", marginBottom: 8 }}>{section.kicker}</Text>
-          <Text style={{ fontSize: 28, color: navy, fontFamily: "Helvetica-Bold", lineHeight: 1.2 }}>{section.title}</Text>
-          <Text style={{ marginTop: 18, fontSize: 12, lineHeight: 1.45, maxWidth: 420 }}>{section.tagline}</Text>
+    <View style={{ height: "100%", paddingTop: 36, paddingBottom: 28, paddingLeft: 42, paddingRight: 28 }}>
+      <Image src={logoSrc} style={{ height: 36, width: 180, objectFit: "contain", alignSelf: "flex-start" }} />
+      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", marginTop: 36 }}>
+        <View style={{ flex: 1.15, paddingRight: 28 }}>
+          <Text style={styles.kicker}>{section.kicker}</Text>
+          <Text style={{ fontSize: 26, color: navy, fontFamily: "Helvetica-Bold", lineHeight: 1.2 }}>{section.title}</Text>
+          <Text style={{ marginTop: 18, fontSize: 12, lineHeight: 1.45 }}>{section.tagline}</Text>
         </View>
-        <Text style={{ fontSize: 10, color: muted }}>{dateLabel}</Text>
+        <View style={{ flex: 0.85, height: "80%", backgroundColor: "#e7eef8", alignItems: "center", justifyContent: "center", borderRadius: 8 }}>
+          {clientLogoSrc ? <Image src={clientLogoSrc} style={{ width: 220, height: 170, objectFit: "contain" }} /> : null}
+        </View>
       </View>
-      <View style={{ flex: 0.75, backgroundColor: "#e7eef8", alignItems: "center", justifyContent: "center" }}>
-        {clientLogoSrc ? <Image src={clientLogoSrc} style={{ width: 220, height: 180, objectFit: "contain" }} /> : null}
-      </View>
+      <Text style={{ fontSize: 10, color: muted, marginTop: 12 }}>{dateLabel}</Text>
     </View>
   );
 }
@@ -192,7 +186,13 @@ function SectionBody({
   summary: Summary;
   ruHeadcount: number | null;
 }) {
-  if (section.kind === "prose") return <Text style={styles.body}>{section.body}</Text>;
+  if (section.kind === "prose") {
+    return (
+      <Text style={[styles.body, section.align === "justify" ? { textAlign: "justify", fontSize: 8.5, lineHeight: 1.32 } : {}]}>
+        {section.body}
+      </Text>
+    );
+  }
   if (section.kind === "bullets" || section.kind === "note") {
     return (
       <View style={{ marginTop: 8 }}>
@@ -221,13 +221,7 @@ function SectionBody({
     );
   }
   if (section.kind === "honorarios") {
-    return (
-      <View>
-        <Text style={styles.body}>{section.intro}</Text>
-        <FeeTable summary={summary} />
-        <PdfBars summary={summary} />
-      </View>
-    );
+    return <FeeTable summary={summary} intro={section.intro} />;
   }
   if (section.kind === "ru") {
     return (
@@ -244,7 +238,7 @@ function SectionBody({
         {section.clauses.map((clause) => (
           <View key={clause.titulo} style={{ marginTop: 8 }}>
             <Text style={styles.h2}>{clause.titulo}</Text>
-            <Text style={styles.small}>{clause.corpo}</Text>
+            <Text style={[styles.small, { textAlign: "justify" }]}>{clause.corpo}</Text>
           </View>
         ))}
       </View>
@@ -267,51 +261,57 @@ function SectionBody({
   return null;
 }
 
-function FeeTable({ summary }: { summary: Summary }) {
+function euro(amount: number): string {
+  return eur(amount).replace(" €", "\u00a0€");
+}
+
+function periodText(line: ComputedLine): string {
+  if (line.pricingRule === "consultation" || line.inclusion === "sob_consulta") return "Sob consulta";
+  if (line.pricingRule === "ru_tier" && line.periodAmount == null) return "Desde 80,00\u00a0€";
+  if (line.detail.startsWith("Incluído") && (line.periodAmount == null || line.periodAmount === 0)) return "Incluído";
+  if (line.periodAmount == null) return "—";
+  return euro(line.periodAmount);
+}
+
+function annualText(line: ComputedLine): string {
+  const current = periodText(line);
+  if (current === "Incluído") return "Incluído";
+  if (current === "Sob consulta" || current.startsWith("Desde") || line.annualAmount == null) return "—";
+  return euro(line.annualAmount);
+}
+
+function FeeTable({ summary, intro }: { summary: Summary; intro: string }) {
   const headers = ["Serviço", "Mensal", "Trimestral", "Anual", "One Shot", "Valor anual"];
-  const widths = ["32%", "14%", "14%", "12%", "14%", "14%"];
+  const widths = [188, 112, 112, 100, 112, 114];
   return (
-    <View style={{ marginTop: 8 }}>
+    <View>
+      {intro ? <Text style={{ fontSize: 9, marginBottom: 6 }}>{intro}</Text> : null}
       <View style={{ flexDirection: "row" }}>
         {headers.map((header, index) => (
           <Text key={header} style={[styles.th, { width: widths[index] }]}>{header}</Text>
         ))}
       </View>
-      {summary.lines.map((line, index) => (
-        <View key={`${line.description}-${index}`} style={{ flexDirection: "row", backgroundColor: index % 2 ? paper : "#ffffff" }}>
-          <Text style={[styles.td, { width: widths[0] }]}>{line.description}{line.optional && !/opcional/i.test(line.description) ? " (opcional)" : ""}</Text>
-          <Text style={[styles.td, { width: widths[1] }]}>{line.cells.mensal}</Text>
-          <Text style={[styles.td, { width: widths[2] }]}>{line.cells.trimestral}</Text>
-          <Text style={[styles.td, { width: widths[3] }]}>{line.cells.anual}</Text>
-          <Text style={[styles.td, { width: widths[4] }]}>{line.cells.oneShot}</Text>
-          <Text style={[styles.td, { width: widths[5] }]}>{line.cells.valorAnual}</Text>
-        </View>
-      ))}
-      <Text style={{ marginTop: 8, fontSize: 9 }}>
-        Correntes {eur(summary.subtotalCorrente)} · Opcionais com valor {eur(summary.subtotalOpcional)} · IVA {pct(summary.vatRate)} sobre correntes {eur(summary.vatCorrente)} · Total correntes com IVA {eur(summary.totalCorrenteComIva)} · Com opcionais e IVA {eur(summary.totalComOpcionais)}
-      </Text>
-    </View>
-  );
-}
-
-function PdfBars({ summary }: { summary: Summary }) {
-  const rows = [
-    { label: "Mensal", value: summary.correnteByPeriod.mensal + summary.opcionalByPeriod.mensal },
-    { label: "Trimestral", value: summary.correnteByPeriod.trimestral + summary.opcionalByPeriod.trimestral },
-    { label: "Anual", value: summary.correnteByPeriod.anual + summary.opcionalByPeriod.anual },
-    { label: "One Shot", value: summary.correnteByPeriod.one_shot + summary.opcionalByPeriod.one_shot },
-  ];
-  const max = Math.max(1, ...rows.map((row) => row.value));
-  return (
-    <View style={{ marginTop: 10 }}>
-      <Text style={styles.h2}>Composição anual dos honorários</Text>
-      {rows.map((row) => (
-        <View key={row.label} style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
-          <Text style={{ width: 78, fontSize: 8 }}>{row.label}</Text>
-          <View style={{ width: Math.max((row.value / max) * 260, 2), height: 8, backgroundColor: navy }} />
-          <Text style={{ marginLeft: 6, fontSize: 8 }}>{eur(row.value)}</Text>
-        </View>
-      ))}
+      {summary.lines.map((line, index) => {
+        const cells = ["—", "—", "—", "—"];
+        const value = periodText(line);
+        if (line.periodicity === "mensal") cells[0] = value;
+        if (line.periodicity === "trimestral") cells[1] = value;
+        if (line.periodicity === "anual") cells[2] = value;
+        if (line.periodicity === "one_shot") cells[3] = value;
+        const shown = [line.description, ...cells, annualText(line)];
+        return (
+          <View key={`${line.description}-${index}`} style={{ flexDirection: "row", alignItems: "center", backgroundColor: index % 2 ? paper : "#ffffff" }}>
+            {shown.map((cell, cellIndex) => (
+              <Text key={`${line.description}-${cellIndex}`} style={[styles.td, { width: widths[cellIndex], textAlign: cellIndex === 0 ? "left" : "right" }]}>
+                {cell}
+              </Text>
+            ))}
+          </View>
+        );
+      })}
+      <View style={{ marginTop: 6 }}>
+        <Text style={{ fontSize: 8 }}>Correntes {euro(summary.subtotalCorrente)} · Opcionais {euro(summary.subtotalOpcional)} · IVA {pct(summary.vatRate)} {euro(summary.vatCorrente)} · Total com IVA {euro(summary.totalCorrenteComIva)} · Com opcionais {euro(summary.totalComOpcionais)}</Text>
+      </View>
     </View>
   );
 }

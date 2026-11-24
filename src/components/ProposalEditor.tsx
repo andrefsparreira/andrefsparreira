@@ -6,9 +6,10 @@ import { saveProposal } from "@/app/actions";
 import { CompositionChart, RuChart } from "@/components/Charts";
 import { HonorariosTable } from "@/components/HonorariosTable";
 import { formatLongDate } from "@/lib/format";
-import type { Summary } from "@/lib/pricing";
-import type { ProposalSection, RetainerSnapshot } from "@/lib/types";
 import { HistorySlide } from "@/components/RetainerHistory";
+import type { Summary } from "@/lib/pricing";
+import { slidesOf } from "@/lib/slides";
+import type { ProposalSection, RetainerSnapshot } from "@/lib/types";
 
 const input = "w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-navy";
 
@@ -90,9 +91,9 @@ export function ProposalEditor({
         >
           Gerar PDF
         </a>
-        <button type="button" onClick={() => window.print()} className="rounded-md px-4 py-2 text-sm text-navy">
+        <a href={`/api/propostas/${proposalId}/pdf`} className="rounded-md px-4 py-2 text-sm text-navy">
           Imprimir
-        </button>
+        </a>
         {editing ? (
           <button type="button" onClick={save} disabled={pending} className="rounded-md bg-[#8d2f39] px-4 py-2 text-sm text-white">
             {pending ? "A guardar…" : "Guardar textos"}
@@ -119,14 +120,15 @@ export function ProposalEditor({
       ) : null}
 
       <div className="slide-deck">
-        {draft.map((section) => (
+        {slidesOf(draft).map((section) => (
           <div key={section.id} className="contents">
             {section.kind === "honorarios" ? (
               <article className="print-sheet overflow-hidden rounded-xl bg-white shadow-sheet">
                 <HistorySlide rows={history} proposalYear={year} />
+                <span className="page-no" />
               </article>
             ) : null}
-            <article className="print-sheet overflow-hidden rounded-xl bg-white shadow-sheet">
+            <article className={`print-sheet overflow-hidden rounded-xl bg-white shadow-sheet ${section.kind === "cover" ? "print-cover" : ""}`}>
               <SectionView
                 section={section}
                 summary={summary}
@@ -136,6 +138,7 @@ export function ProposalEditor({
                 dateLabel={formatLongDate(date)}
                 ruHeadcount={ru?.quantity ?? null}
               />
+              {section.kind === "cover" ? null : <span className="page-no" />}
             </article>
           </div>
         ))}
@@ -286,32 +289,34 @@ function SectionView({
 }) {
   if (section.kind === "cover") {
     return (
-      <div className="grid h-full min-h-[28rem] md:grid-cols-[1.3fr_0.7fr]">
-        <div className="flex h-full flex-col justify-between p-8 md:p-12">
-          <img src="/brand/ks-logo.png" alt="KS Consultores" className="h-12 w-auto self-start" />
-          <div>
+      <div className="flex h-full min-h-[28rem] flex-col p-8 md:p-10">
+        <img src="/brand/ks-logo.png" alt="KS Consultores" className="h-10 w-auto self-start" />
+        <div className="mt-8 flex flex-1 items-center gap-8">
+          <div className="flex-1">
             <p className="text-sm uppercase tracking-[0.18em] text-[#8d2f39]">{section.kicker}</p>
-            <h1 className="mt-3 font-serif text-4xl leading-tight text-navy">{section.title}</h1>
+            <h1 className="mt-4 font-serif text-4xl leading-tight text-navy">{section.title}</h1>
             <p className="mt-6 max-w-xl whitespace-pre-line text-lg text-ink">{section.tagline}</p>
           </div>
-          <p className="text-sm text-muted">{dateLabel} · {clientName}</p>
+          <div className="flex h-full min-h-56 flex-1 items-center justify-center rounded-xl bg-navy-soft p-6">
+            {clientLogo ? (
+              <img src={clientLogo} alt="" className="max-h-56 w-auto" />
+            ) : (
+              <p className="font-serif text-3xl text-navy">{year}</p>
+            )}
+          </div>
         </div>
-        <div className="flex items-center justify-center bg-navy-soft p-8">
-          {clientLogo ? (
-            <img src={clientLogo} alt="" className="max-h-64 w-auto" />
-          ) : (
-            <p className="font-serif text-3xl text-navy">{year}</p>
-          )}
-        </div>
+        <p className="mt-6 text-sm text-muted">{dateLabel}</p>
       </div>
     );
   }
 
   return (
-    <div className="p-8 md:p-10">
-      <p className="text-xs font-medium uppercase tracking-wide text-navy">{clientName}</p>
-      <h2 className="mt-2 font-serif text-3xl text-navy">{section.title}</h2>
-      {section.kind === "prose" ? <p className="mt-6 whitespace-pre-line text-[17px] leading-8">{section.body}</p> : null}
+    <div className="relative p-8 md:p-10">
+      <img src="/brand/ks-logo.png" alt="" className="ml-auto h-7 w-auto" />
+      <h2 className="mt-6 font-serif text-3xl text-navy">{section.title}</h2>
+      {section.kind === "prose" ? (
+        <p className={`mt-6 whitespace-pre-line text-[17px] leading-8 ${section.align === "justify" ? "text-justify text-sm leading-6" : ""}`}>{section.body}</p>
+      ) : null}
       {section.kind === "bullets" || section.kind === "note" ? (
         <div className="mt-6">
           {section.kind === "bullets" && section.intro ? <p className="mb-4 text-[17px]">{section.intro}</p> : null}
@@ -358,7 +363,7 @@ function SectionView({
           {section.clauses.map((clause) => (
             <section key={clause.titulo}>
               <h3 className="font-serif text-lg text-navy">{clause.titulo}</h3>
-              <p className="mt-2 whitespace-pre-line">{clause.corpo}</p>
+              <p className="mt-2 whitespace-pre-line text-justify">{clause.corpo}</p>
             </section>
           ))}
         </div>

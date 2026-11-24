@@ -5,19 +5,20 @@ import { redirect } from "next/navigation";
 import { sql, withTransaction, type Query } from "@/lib/db";
 import { modeloLinhas } from "@/lib/example";
 import { parseDecimal, todayISO } from "@/lib/format";
-import { computeRetainer, historyWindow } from "@/lib/pricing";
-import { ensureFeeYears, getClient, getLines, getYear } from "@/lib/queries";
+import { computeBaseRetainer, historyWindow } from "@/lib/pricing";
+import { ensureFeeYears, getClient, getLines, getYear, listRetainerCatalog } from "@/lib/queries";
 import { insertDrafts } from "@/lib/seed";
 import { buildProposalSections } from "@/lib/template";
 import type {
+  BasePeriod,
   ClientStatus,
-  DocMedium,
-  DocOrganization,
   Inclusion,
   LineDraft,
   Periodicity,
   PricingRule,
   ProposalSection,
+  RetainerChoice,
+  RetainerKind,
 } from "@/lib/types";
 import { requireViewer } from "@/lib/viewer";
 
@@ -340,8 +341,8 @@ export async function saveProposal(input: {
 }
 
 const STATUSES = new Set<ClientStatus>(["atual", "novo"]);
-const ORGANIZATIONS = new Set<DocOrganization>(["organizada", "alguma", "desorganizada", "muito_desorganizada"]);
-const MEDIUMS = new Set<DocMedium>(["digital", "misto", "fisico"]);
+const PERIODS_BASE = new Set<BasePeriod>(["mensal", "trimestral"]);
+const KINDS = new Set<RetainerKind>(["opcao", "escalao"]);
 
 async function upsertMonthlyLine(
   query: Query,
@@ -383,15 +384,143 @@ async function upsertMonthlyLine(
   ]);
 }
 
+async function upsertBaseLine(query: Query, yearId: number, amount: number, period: BasePeriod, note: string) {
+  const rows = await query<{ id: number }>(
+    `SELECT id FROM fee_lines
+     WHERE year_id = $1 AND optional = 0 AND inclusion = 'valor' AND periodicity IN ('mensal', 'trimestral')
+     ORDER BY CASE
+       WHEN notes LIKE 'Calculada%' OR description ILIKE '%responsabilidade%' THEN 0
+       ELSE 1
+     END, sort_order, id
+     LIMIT 1`,
+    [yearId],
+  );
+  const typeCode = period === "trimestral" ? "trimestral" : "mensal";
+  const existing = rows[0];
+  if (existing) {
+    await query(
+      "UPDATE fee_lines SET unit_value = $1, manual = 1, notes = $2, periodicity = $3, type_code = $4 WHERE id = $5",
+      [amount, note, period, typeCode, existing.id],
+    );
+    return;
+  }
+  await query(LINE_INSERT, [
+    yearId,
+    0,
+    typeCode,
+    "Responsabilidade CC e execução dos serviços",
+    period,
+    null,
+    "valor",
+    0,
+    amount,
+    1,
+    "fixed",
+    note,
+  ]);
+}
+
+export async function saveRetainerCatalog(input: {
+  baseAmount: number;
+  parameters: {
+    id: number | null;
+    name: string;
+    kind: RetainerKind;
+    values: {
+      id: number | null;
+      label: string;
+      amount: number;
+      rangeMin: number | null;
+      rangeMax: number | null;
+    }[];
+  }[];
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await requireViewer())) return { ok: false, error: "Sessão em falta." };
+  if (!Number.isFinite(input.baseAmount) || input.baseAmount < 0) {
+    return { ok: false, error: "A avença base tem de ser zero ou positiva." };
+  }
+  if (input.parameters.length === 0) return { ok: false, error: "Indique pelo menos um parâmetro." };
+  for (const parameter of input.parameters) {
+    if (!parameter.name.trim()) return { ok: false, error: "Cada parâmetro precisa de um nome." };
+    if (!KINDS.has(parameter.kind)) return { ok: false, error: "Tipo de parâmetro inválido." };
+    for (const value of parameter.values) {
+      if (!value.label.trim()) return { ok: false, error: `Falta o nome de um valor em «${parameter.name}».` };
+      if (!Number.isFinite(value.amount)) return { ok: false, error: `O valor de «${value.label}» não é um número.` };
+    }
+  }
+
+  try {
+    await withTransaction(async (query) => {
+    await query(
+      `INSERT INTO settings (key, value) VALUES ('retainer_base', $1)
+       ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
+      [String(input.baseAmount)],
+    );
+    const keptParameters: number[] = [];
+    for (const [parameterIndex, parameter] of input.parameters.entries()) {
+      let parameterId = parameter.id ?? 0;
+      if (parameterId) {
+        await query("UPDATE retainer_parameters SET name = $1, kind = $2, sort_order = $3, active = 1 WHERE id = $4", [
+          parameter.name.trim(),
+          parameter.kind,
+          (parameterIndex + 1) * 10,
+          parameterId,
+        ]);
+      } else {
+        const inserted = await query<{ id: number }>(
+          "INSERT INTO retainer_parameters (name, kind, sort_order) VALUES ($1, $2, $3) RETURNING id",
+          [parameter.name.trim(), parameter.kind, (parameterIndex + 1) * 10],
+        );
+        parameterId = Number(inserted[0]?.id);
+      }
+      keptParameters.push(parameterId);
+      const keptValues: number[] = [];
+      for (const [valueIndex, value] of parameter.values.entries()) {
+        let valueId = value.id ?? 0;
+        if (valueId) {
+          await query(
+            `UPDATE retainer_values
+             SET label = $1, amount = $2, range_min = $3, range_max = $4, sort_order = $5, parameter_id = $6
+             WHERE id = $7`,
+            [value.label.trim(), value.amount, value.rangeMin, value.rangeMax, (valueIndex + 1) * 10, parameterId, valueId],
+          );
+        } else {
+          const inserted = await query<{ id: number }>(
+            `INSERT INTO retainer_values (parameter_id, label, amount, range_min, range_max, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+            [parameterId, value.label.trim(), value.amount, value.rangeMin, value.rangeMax, (valueIndex + 1) * 10],
+          );
+          valueId = Number(inserted[0]?.id);
+        }
+        keptValues.push(valueId);
+      }
+      if (keptValues.length === 0) {
+        await query("DELETE FROM retainer_values WHERE parameter_id = $1", [parameterId]);
+      } else {
+        await query(
+          `DELETE FROM retainer_values WHERE parameter_id = $1 AND NOT (id = ANY($2::int[]))`,
+          [parameterId, keptValues],
+        );
+      }
+    }
+    await query("DELETE FROM retainer_parameters WHERE NOT (id = ANY($1::int[]))", [keptParameters]);
+  });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Erro ao gravar.";
+    return { ok: false, error: detail };
+  }
+  revalidatePath("/tabela");
+  revalidatePath("/");
+  return { ok: true };
+}
+
 export async function saveRetainerAssessment(input: {
   yearId: number;
   clientStatus: ClientStatus;
-  docOrganization: DocOrganization;
-  docCount: number | null;
-  docMedium: DocMedium;
-  turnover: number | null;
+  period: BasePeriod;
   manualAdjust: number;
-}): Promise<{ ok: true; monthly: number } | { ok: false; error: string }> {
+  selections: RetainerChoice[];
+}): Promise<{ ok: true; amount: number; period: BasePeriod } | { ok: false; error: string }> {
   if (!(await requireViewer())) return { ok: false, error: "Sessão em falta." };
   const yearRows = await sql<{ id: number; client_id: number; year: number }>(
     "SELECT id, client_id, year FROM fee_years WHERE id = $1",
@@ -399,57 +528,48 @@ export async function saveRetainerAssessment(input: {
   );
   const yearRow = yearRows[0];
   if (!yearRow) return { ok: false, error: "Ano não encontrado." };
-  if (!STATUSES.has(input.clientStatus) || !ORGANIZATIONS.has(input.docOrganization) || !MEDIUMS.has(input.docMedium)) {
+  if (!STATUSES.has(input.clientStatus) || !PERIODS_BASE.has(input.period)) {
     return { ok: false, error: "Parâmetros inválidos." };
   }
-  if (input.docCount != null && (!Number.isFinite(input.docCount) || input.docCount < 0 || input.docCount > 100000)) {
-    return { ok: false, error: "A quantidade de documentos tem de ser zero ou positiva." };
-  }
-  if (input.turnover != null && (!Number.isFinite(input.turnover) || input.turnover < 0)) {
-    return { ok: false, error: "A faturação tem de ser zero ou positiva." };
-  }
   if (!Number.isFinite(input.manualAdjust)) return { ok: false, error: "O ajuste manual não é um número." };
-
-  const quote = computeRetainer({
-    proposalYear: Number(yearRow.year),
-    clientStatus: input.clientStatus,
-    docOrganization: input.docOrganization,
-    docCount: input.docCount,
-    docMedium: input.docMedium,
-    turnover: input.turnover,
+  const catalog = await listRetainerCatalog();
+  const baseRows = await sql<{ value: string }>("SELECT value FROM settings WHERE key = 'retainer_base'");
+  const baseAmount = baseRows[0] ? Number(baseRows[0].value) : 150;
+  for (const selection of input.selections) {
+    const parameter = catalog.find((item) => item.id === selection.parameterId);
+    if (!parameter) return { ok: false, error: "Há um parâmetro que já não existe. Actualize a página." };
+    if (parameter.kind === "escalao" && selection.numeric != null && (!Number.isFinite(selection.numeric) || selection.numeric < 0)) {
+      return { ok: false, error: `O valor de «${parameter.name}» tem de ser zero ou positivo.` };
+    }
+  }
+  const quote = computeBaseRetainer({
+    baseAmount: Number.isFinite(baseAmount) ? baseAmount : 150,
+    period: input.period,
+    parameters: catalog,
+    selections: input.selections,
     manualAdjust: input.manualAdjust,
   });
-  const note = `Calculada sobre a base de 150,00 €: ${quote.parts
-    .map((part) => `${part.label} ${part.monthly >= 0 ? "+" : ""}${part.monthly.toFixed(2).replace(".", ",")} €`)
+  const note = `Avença base ${input.period === "trimestral" ? "trimestral" : "mensal"}, calculada sobre ${quote.base.toFixed(2).replace(".", ",")} €: ${quote.parts
+    .map((part) => `${part.label} ${part.amount >= 0 ? "+" : ""}${part.amount.toFixed(2).replace(".", ",")} €`)
     .join("; ")}.`;
 
   await withTransaction(async (query) => {
     await query(
-      `UPDATE fee_years SET
-        monthly_retainer = $1,
-        client_status = $2,
-        doc_organization = $3,
-        doc_count = $4,
-        doc_medium = $5,
-        turnover = $6,
-        manual_adjust = $7
-       WHERE id = $8`,
-      [
-        quote.monthly,
-        input.clientStatus,
-        input.docOrganization,
-        input.docCount,
-        input.docMedium,
-        input.turnover,
-        quote.parts.find((part) => part.label === "Ajuste manual")?.monthly ?? 0,
-        input.yearId,
-      ],
+      `UPDATE fee_years SET monthly_retainer = $1, client_status = $2, manual_adjust = $3, base_period = $4 WHERE id = $5`,
+      [quote.periodAmount, input.clientStatus, input.manualAdjust, input.period, input.yearId],
     );
-    await upsertMonthlyLine(query, input.yearId, quote.monthly, note, true);
+    await query("DELETE FROM fee_year_choices WHERE year_id = $1", [input.yearId]);
+    for (const selection of input.selections) {
+      await query(
+        `INSERT INTO fee_year_choices (year_id, parameter_id, value_id, numeric_value) VALUES ($1, $2, $3, $4)`,
+        [input.yearId, selection.parameterId, selection.valueId, selection.numeric],
+      );
+    }
+    await upsertBaseLine(query, input.yearId, quote.periodAmount, input.period, note);
   });
   revalidatePath(`/clientes/${yearRow.client_id}`);
   revalidatePath("/");
-  return { ok: true, monthly: quote.monthly };
+  return { ok: true, amount: quote.periodAmount, period: input.period };
 }
 
 export async function saveRetainerHistory(input: {

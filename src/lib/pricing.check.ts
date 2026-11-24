@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { modeloLinhas } from "./example";
 import {
-  computeRetainer,
+  computeBaseRetainer,
   computeSummary,
+  defaultRetainerCatalog,
   historyWindow,
   monthlyRunRate,
   ruTier,
@@ -66,31 +67,60 @@ const admissions = computeSummary([
 assert.equal(admissions.lines[0]?.periodAmount, 36);
 assert.equal(admissions.subtotalCorrente, 36);
 
-const baseQuote = computeRetainer({
-  proposalYear: 2027,
-  clientStatus: "novo",
-  docOrganization: "organizada",
-  docCount: 30,
-  docMedium: "digital",
-  turnover: 40000,
+const catalog = defaultRetainerCatalog();
+const pick = (name: string, label: string | null, numeric: number | null) => {
+  const parameter = catalog.find((item) => item.name === name);
+  if (!parameter) throw new Error(name);
+  return {
+    parameterId: parameter.id,
+    valueId: label ? (parameter.values.find((value) => value.label === label)?.id ?? null) : null,
+    numeric,
+  };
+};
+const baseQuote = computeBaseRetainer({
+  baseAmount: 150,
+  period: "mensal",
+  parameters: catalog,
+  selections: [
+    pick("Organização da documentação", "Organizada", null),
+    pick("Quantidade de documentos", null, 30),
+    pick("Suporte da documentação", "Digital", null),
+    pick("Faturação anual", null, 40000),
+  ],
   manualAdjust: 0,
 });
-assert.equal(baseQuote.monthly, 150);
+assert.equal(baseQuote.periodAmount, 150);
 assert.equal(baseQuote.annual, 1800);
-assert.equal(baseQuote.turnoverCaption, "Faturação esperada no final de 2027");
 
-const adjusted = computeRetainer({
-  proposalYear: 2027,
-  clientStatus: "atual",
-  docOrganization: "desorganizada",
-  docCount: 150,
-  docMedium: "fisico",
-  turnover: 200000,
+const quarterly = computeBaseRetainer({
+  baseAmount: 150,
+  period: "trimestral",
+  parameters: catalog,
+  selections: baseQuote.parts.length ? [
+    pick("Organização da documentação", "Organizada", null),
+    pick("Quantidade de documentos", null, 30),
+    pick("Suporte da documentação", "Digital", null),
+    pick("Faturação anual", null, 40000),
+  ] : [],
+  manualAdjust: 0,
+});
+assert.equal(quarterly.periodAmount, 150);
+assert.equal(quarterly.annual, 600);
+
+const adjusted = computeBaseRetainer({
+  baseAmount: 150,
+  period: "mensal",
+  parameters: catalog,
+  selections: [
+    pick("Organização da documentação", "Desorganizada", null),
+    pick("Quantidade de documentos", null, 150),
+    pick("Suporte da documentação", "Físico", null),
+    pick("Faturação anual", null, 200000),
+  ],
   manualAdjust: -10,
 });
-assert.equal(adjusted.turnoverCaption, "Faturação de 2026");
-assert.equal(adjusted.monthly, 335);
-assert.equal(adjusted.parts.find((part) => part.label.startsWith("Faturação"))?.monthly, 60);
+assert.equal(adjusted.periodAmount, 335);
+assert.equal(adjusted.parts.find((part) => part.label.startsWith("Faturação"))?.amount, 60);
 assert.equal(historyWindow(2027).join(","), "2022,2023,2024,2025,2026");
 
 console.log("Tabela de preços conferida.");

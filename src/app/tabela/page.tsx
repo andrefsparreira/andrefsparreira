@@ -1,7 +1,8 @@
 import { deactivateServiceType, saveServiceType } from "@/app/actions";
+import { RetainerParameters } from "@/components/RetainerParameters";
 import { eur, INCLUSION_LABEL, PERIOD_LABEL, RULE_LABEL } from "@/lib/format";
-import { BASE_MONTHLY_RETAINER, DOC_MEDIUM, DOC_ORGANIZATION, DOC_VOLUME, RU_TIERS, TARIFF_NOTES, TURNOVER_BANDS } from "@/lib/pricing";
-import { listTypes } from "@/lib/queries";
+import { RU_TIERS, TARIFF_NOTES } from "@/lib/pricing";
+import { getRetainerBase, listRetainerCatalog, listTypes } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,8 @@ export default async function TariffPage({
 }) {
   const sp = await searchParams;
   const types = await listTypes(true);
+  const catalog = await listRetainerCatalog();
+  const baseAmount = await getRetainerBase();
 
   return (
     <div className="space-y-8">
@@ -47,23 +50,11 @@ export default async function TariffPage({
         </table>
       </div>
 
-      <section className="space-y-3">
-        <h2 className="font-serif text-2xl text-navy">Avença mensal de base</h2>
-        <p className="max-w-3xl text-sm text-muted">
-          O cálculo parte de {eur(BASE_MONTHLY_RETAINER)} por mês. A documentação digital, organizada, com até 40 documentos
-          por mês e faturação até 50.000 € já está nessa base. A digital é a situação mais acessível; os restantes
-          parâmetros somam-se. Num cliente atual usa-se a faturação do ano anterior; num cliente novo, a faturação
-          esperada no final do ano da proposta.
-        </p>
-        <div className="grid gap-4 md:grid-cols-2">
-          <BandList title="Organização e suporte" rows={[
-            ...DOC_ORGANIZATION.map((item) => ({ label: item.label, monthly: item.monthly })),
-            ...DOC_MEDIUM.map((item) => ({ label: `Suporte ${item.label.toLowerCase()}`, monthly: item.monthly })),
-          ]} />
-          <BandList title="Documentos por mês" rows={DOC_VOLUME.map((item) => ({ label: item.label, monthly: item.monthly }))} />
-          <BandList title="Faturação anual" rows={TURNOVER_BANDS.map((item) => ({ label: item.label, monthly: item.monthly }))} />
-        </div>
-      </section>
+      <RetainerParameters
+        key={catalog.map((parameter) => `${parameter.id}:${parameter.values.map((value) => `${value.id}:${value.amount}`).join(",")}`).join("|") + baseAmount}
+        baseAmount={baseAmount}
+        parameters={catalog}
+      />
 
       <section>
         <h2 className="mb-3 font-serif text-2xl text-navy">Relatório Único</h2>
@@ -151,22 +142,6 @@ export default async function TariffPage({
           </div>
         </form>
       </section>
-    </div>
-  );
-}
-
-function BandList({ title, rows }: { title: string; rows: { label: string; monthly: number }[] }) {
-  return (
-    <div className="rounded-xl border border-line bg-white p-4">
-      <h3 className="font-medium text-navy">{title}</h3>
-      <ul className="mt-2 space-y-1 text-sm">
-        {rows.map((row) => (
-          <li key={row.label} className="flex justify-between gap-4">
-            <span>{row.label}</span>
-            <span className="tabular-nums">{row.monthly === 0 ? "incluído" : `+${eur(row.monthly)}`}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
