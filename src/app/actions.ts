@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { validarConfiguracao } from "@/lib/avenca-config";
+import { calcularRevisaoAvenca, type ConfiguracaoAvencas, type DadosAnuais } from "@/lib/avenca-motor";
 import { sql, withTransaction, type Query } from "@/lib/db";
 import { modeloLinhas } from "@/lib/example";
 import { parseDecimal, todayISO } from "@/lib/format";
 import { computeBaseRetainer, historyWindow } from "@/lib/pricing";
-import { ensureFeeYears, getClient, getLines, getYear, listRetainerCatalog } from "@/lib/queries";
+import { displayedMonthly, ensureFeeYears, getAvencaConfig, getClient, getLines, getYear, listRetainerCatalog } from "@/lib/queries";
 import { insertDrafts } from "@/lib/seed";
 import { buildProposalSections } from "@/lib/template";
 import type {
@@ -599,6 +601,128 @@ export async function saveRetainerAssessment(input: {
   revalidatePath(`/clientes/${yearRow.client_id}`);
   revalidatePath("/");
   return { ok: true, amount: quote.periodAmount, period: input.period };
+}
+
+function organizacaoGuardada(nivel: number): string {
+  if (nivel <= 2) return "organizada";
+  if (nivel <= 4) return "alguma";
+  if (nivel === 5) return "desorganizada";
+  return "muito_desorganizada";
+}
+
+function validarAtividade(dados: DadosAnuais, rotulo: string): string | null {
+  try {
+    calcularRevisaoAvenca(1, dados, dados);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Dados inválidos.";
+    if (message.includes("positiva")) return null;
+    return `${rotulo}: ${message}`;
+  }
+  return null;
+}
+
+async function gravarAtividade(query: Query, clientId: number, year: number, dados: DadosAnuais): Promise<number> {
+  const existing = await query<{ id: number }>(
+    "SELECT id FROM fee_years WHERE client_id = $1 AND year = $2",
+    [clientId, year],
+  );
+  let yearId = existing[0] ? Number(existing[0].id) : 0;
+  if (!yearId) {
+    const created = await query<{ id: number }>(
+      "INSERT INTO fee_years (client_id, year, note) VALUES ($1, $2, '') RETURNING id",
+      [clientId, year],
+    );
+    yearId = Number(created[0]?.id);
+  }
+  await query(
+    `UPDATE fee_years SET
+      turnover = $1, doc_count = $2, organization_level = $3, accounting_level = $4, doc_organization = $5
+     WHERE id = $6`,
+    [dados.faturacao, dados.documentos, dados.organizacao, dados.contabilizacao, organizacaoGuardada(dados.organizacao), yearId],
+  );
+  return yearId;
+}
+
+export async function saveAvaliacao(input: {
+  clientId: number;
+  year: number;
+  atual: DadosAnuais;
+  anterior: DadosAnuais;
+  decisao: "guardar" | "aprovar" | "rejeitar";
+}): Promise<{ ok: true; amount?: number } | { ok: false; error: string }> {
+  if (!(await requireViewer())) return { ok: false, error: "Sessão em falta." };
+  const client = await getClient(input.clientId);
+  if (!client) return { ok: false, error: "Cliente não encontrado." };
+  if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2100) {
+    return { ok: false, error: "Indique um ano entre 2000 e 2100." };
+  }
+  const erroAtual = validarAtividade(input.atual, String(input.year));
+  if (erroAtual) return { ok: false, error: erroAtual };
+  const erroAnterior = validarAtividade(input.anterior, String(input.year - 1));
+  if (erroAnterior) return { ok: false, error: erroAnterior };
+
+  const config = await getAvencaConfig();
+  const anteriorAno = await getYear(input.clientId, input.year - 1);
+  const avencaAnterior = anteriorAno ? displayedMonthly(anteriorAno, await getLines(anteriorAno.id)) : null;
+  let revisao: ReturnType<typeof calcularRevisaoAvenca> | null = null;
+  if (input.decisao === "aprovar") {
+    if (avencaAnterior == null || avencaAnterior <= 0) {
+      return { ok: false, error: "Indique primeiro a avença praticada no ano anterior." };
+    }
+    revisao = calcularRevisaoAvenca(avencaAnterior, input.anterior, input.atual, config);
+    if (revisao.avencaProposta == null || revisao.avencaArredondada == null) {
+      return { ok: false, error: revisao.motivo ?? "Esta proposta fica para revisão manual, sem valor automático." };
+    }
+  }
+
+  const amount = revisao && revisao.avencaArredondada != null ? revisao.avencaArredondada : null;
+  await withTransaction(async (query) => {
+    await gravarAtividade(query, input.clientId, input.year - 1, input.anterior);
+    const yearId = await gravarAtividade(query, input.clientId, input.year, input.atual);
+    if (input.decisao === "aprovar" && amount != null) {
+      const note = `Avença aprovada para ${input.year}: ${amount.toFixed(2).replace(".", ",")} € por mês.`;
+      await query(
+        `UPDATE fee_years SET approval_status = 'aprovada', approved_retainer = $1, monthly_retainer = $1 WHERE id = $2`,
+        [amount, yearId],
+      );
+      await upsertBaseLine(query, yearId, amount, "mensal", note);
+      return;
+    }
+    if (input.decisao === "rejeitar") {
+      await query("UPDATE fee_years SET approval_status = 'rejeitada' WHERE id = $1", [yearId]);
+      return;
+    }
+    await query("UPDATE fee_years SET approval_status = 'rascunho', approved_retainer = NULL WHERE id = $1", [yearId]);
+  });
+
+  revalidatePath(`/clientes/${input.clientId}`);
+  revalidatePath("/avencas");
+  revalidatePath("/");
+  const proposals = await sql<{ id: number }>(
+    "SELECT id FROM proposals WHERE client_id = $1 AND year = $2",
+    [input.clientId, input.year],
+  );
+  if (proposals[0]) revalidatePath(`/propostas/${Number(proposals[0].id)}`);
+  return amount == null ? { ok: true } : { ok: true, amount };
+}
+
+export async function saveAvencaConfig(input: ConfiguracaoAvencas): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await requireViewer())) return { ok: false, error: "Sessão em falta." };
+  let config: ConfiguracaoAvencas;
+  try {
+    config = validarConfiguracao(input);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Configuração inválida." };
+  }
+  await sql(
+    `INSERT INTO settings (key, value) VALUES ('avenca_config', $1)
+     ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
+    [JSON.stringify(config)],
+  );
+  revalidatePath("/parametros");
+  revalidatePath("/avencas");
+  revalidatePath("/");
+  return { ok: true };
 }
 
 export async function saveRetainerHistory(input: {

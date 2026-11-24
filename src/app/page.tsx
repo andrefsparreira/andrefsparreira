@@ -30,7 +30,7 @@ export default async function HomePage({
           <p className="text-sm uppercase tracking-[0.16em] text-[#8d2f39]">Gabinete</p>
           <h1 className="font-serif text-4xl text-navy">Clientes e avenças</h1>
           <p className="mt-2 max-w-2xl text-muted">
-            Propostas de prestação de serviços para 2027. A avença base, mensal ou trimestral, parte de 150,00 €. Os parâmetros e os valores são editáveis e ajustam só essa avença. O histórico mostra os cinco anos anteriores.
+            Propostas de prestação de serviços para 2027. A avaliação compara o exercício com o anterior e propõe a avença. O histórico mostra os cinco anos anteriores.
           </p>
         </div>
         <Link href="/clientes/novo" className="rounded-md bg-navy px-4 py-2 text-sm text-white">

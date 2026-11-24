@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createYear, deleteClient, loadModelLines, openProposal, updateClient } from "@/app/actions";
+import { AvaliacaoCliente } from "@/components/AvaliacaoCliente";
 import { ClientForm } from "@/components/ClientForm";
 import { FeeEditor } from "@/components/FeeEditor";
-import { RetainerCalculator } from "@/components/RetainerCalculator";
 import { RetainerHistory } from "@/components/RetainerHistory";
 import { eur, formatDatePT } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
-import { findProposal, getClient, getLines, getRetainerBase, getVatRate, getYear, listRetainerCatalog, listTypes, listYearChoices, listYears, retainerHistory } from "@/lib/queries";
+import { displayedMonthly, findProposal, getAvencaConfig, getClient, getLines, getVatRate, getYear, listTypes, listYears, retainerHistory } from "@/lib/queries";
 import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export default async function ClientPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ ano?: string; ok?: string; erro?: string }>;
+  searchParams: Promise<{ ano?: string; ok?: string; erro?: string; sep?: string }>;
 }) {
   if (!(await requireViewer())) return null;
   const { id } = await params;
@@ -33,12 +33,13 @@ export default async function ClientPage({
   const year = years.find((item) => item.year === requested) ?? years[years.length - 1] ?? null;
   const lines = year ? await getLines(year.id) : [];
   const types = await listTypes();
-  const catalog = await listRetainerCatalog();
-  const baseAmount = await getRetainerBase();
-  const choices = year ? await listYearChoices(year.id) : [];
   const vatRate = await getVatRate();
   const summary = computeSummary(lines, vatRate);
   const proposal = year ? await findProposal(client.id, year.year) : null;
+  const separador = sp.sep === "avaliacao" || sp.sep === "honorarios" ? sp.sep : "ficha";
+  const anterior = year ? await getYear(client.id, year.year - 1) : null;
+  const avencaAnterior = anterior ? displayedMonthly(anterior, await getLines(anterior.id)) : null;
+  const config = separador === "avaliacao" ? await getAvencaConfig() : null;
 
   return (
     <div className="space-y-8">
@@ -69,6 +70,25 @@ export default async function ClientPage({
         <Notice ok={sp.ok} erro={sp.erro} />
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <Tab href={`/clientes/${client.id}?ano=${year?.year ?? requestedYear}`} ativo={separador === "ficha"}>Ficha</Tab>
+        <Tab href={`/clientes/${client.id}?ano=${year?.year ?? requestedYear}&sep=avaliacao`} ativo={separador === "avaliacao"}>Avaliação e avenças</Tab>
+        <Tab href={`/clientes/${client.id}?ano=${year?.year ?? requestedYear}&sep=honorarios`} ativo={separador === "honorarios"}>Honorários</Tab>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {years.map((item) => (
+          <Link
+            key={item.id}
+            href={`/clientes/${client.id}?ano=${item.year}${separador === "ficha" ? "" : `&sep=${separador}`}`}
+            className={`rounded-full px-3 py-1 text-sm ${item.id === year?.id ? "bg-navy text-white" : "bg-white text-navy"}`}
+          >
+            {item.year}
+          </Link>
+        ))}
+      </div>
+
+      {separador === "ficha" ? (
       <section className="rounded-xl border border-line bg-card p-6">
         <h2 className="mb-4 font-serif text-2xl text-navy">Ficha</h2>
         <ClientForm action={updateClient} client={client} submitLabel="Guardar ficha" />
@@ -77,14 +97,42 @@ export default async function ClientPage({
           <button className="text-sm text-[#8d2f39]">Eliminar cliente</button>
         </form>
       </section>
+      ) : null}
 
-      <RetainerHistory
-        key={history.map((row) => `${row.year}:${row.monthly ?? ""}`).join("|")}
-        clientId={client.id}
-        proposalYear={anchor}
-        rows={history}
-      />
+      {separador === "avaliacao" && year && config ? (
+        <>
+          <AvaliacaoCliente
+            key={`${year.id}-${anterior?.id ?? 0}-${avencaAnterior ?? ""}-${year.approvalStatus}`}
+            clientId={client.id}
+            year={year.year}
+            avencaAnterior={avencaAnterior}
+            config={config}
+            atual={{
+              faturacao: year.turnover,
+              documentos: year.docCount,
+              organizacao: year.organizationLevel,
+              contabilizacao: year.accountingLevel,
+            }}
+            anterior={{
+              faturacao: anterior?.turnover ?? null,
+              documentos: anterior?.docCount ?? null,
+              organizacao: anterior?.organizationLevel ?? null,
+              contabilizacao: anterior?.accountingLevel ?? null,
+            }}
+            approvalStatus={year.approvalStatus}
+            approvedRetainer={year.approvedRetainer}
+          />
+          <RetainerHistory
+            key={history.map((row) => `${row.year}:${row.monthly ?? ""}`).join("|")}
+            clientId={client.id}
+            proposalYear={anchor}
+            rows={history}
+          />
+        </>
+      ) : null}
+      {separador === "avaliacao" && !year ? <p className="text-sm text-muted">Crie um ano em Honorários para lançar a avaliação.</p> : null}
 
+      {separador === "honorarios" ? (
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h2 className="font-serif text-2xl text-navy">Linhas de honorários</h2>
@@ -95,17 +143,6 @@ export default async function ClientPage({
           ) : (
             <p className="text-sm text-muted">Ainda sem anos.</p>
           )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {years.map((item) => (
-            <Link
-              key={item.id}
-              href={`/clientes/${client.id}?ano=${item.year}`}
-              className={`rounded-full px-3 py-1 text-sm ${item.id === year?.id ? "bg-navy text-white" : "bg-white text-navy"}`}
-            >
-              {item.year}
-            </Link>
-          ))}
         </div>
         {year ? <p className="text-sm text-muted">{year.note}</p> : null}
         <form action={createYear} className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-white p-3 text-sm">
@@ -127,14 +164,6 @@ export default async function ClientPage({
         </form>
         {year ? (
           <>
-            <RetainerCalculator
-              key={`calc-${year.id}-${year.basePeriod}-${choices.map((choice) => `${choice.parameterId}:${choice.valueId}:${choice.numeric}`).join("|")}-${baseAmount}`}
-              year={year}
-              fallbackTurnover={year.year === 2027 ? client.expectedTurnover : null}
-              baseAmount={baseAmount}
-              parameters={catalog}
-              choices={choices}
-            />
             <form action={loadModelLines}>
               <input type="hidden" name="clientId" value={client.id} />
               <input type="hidden" name="year" value={year.year} />
@@ -153,7 +182,16 @@ export default async function ClientPage({
           </>
         ) : null}
       </section>
+      ) : null}
     </div>
+  );
+}
+
+function Tab({ href, ativo, children }: { href: string; ativo: boolean; children: string }) {
+  return (
+    <Link href={href} className={`rounded-full px-3 py-1 text-sm ${ativo ? "bg-navy text-white" : "bg-white text-navy"}`}>
+      {children}
+    </Link>
   );
 }
 

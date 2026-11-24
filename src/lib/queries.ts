@@ -1,3 +1,5 @@
+import { lerConfiguracao } from "./avenca-config";
+import { montarLinha, type LinhaQuadro } from "./avenca-quadro";
 import { sql } from "./db";
 import { computeSummary, DEFAULT_VAT_RATE, historyWindow, monthlyRunRate } from "./pricing";
 import type {
@@ -95,10 +97,15 @@ type YearRow = {
   turnover: number | null;
   manual_adjust: number | null;
   base_period: string | null;
+  organization_level: number | null;
+  accounting_level: number | null;
+  approval_status: string | null;
+  approved_retainer: number | null;
 };
 
 const YEAR_COLUMNS = `id, client_id, year, note, monthly_retainer, client_status, doc_organization,
-  doc_count, doc_medium, turnover, manual_adjust, base_period`;
+  doc_count, doc_medium, turnover, manual_adjust, base_period,
+  organization_level, accounting_level, approval_status, approved_retainer`;
 
 function mapYear(row: YearRow): FeeYear {
   const status: ClientStatus = row.client_status === "novo" ? "novo" : "atual";
@@ -122,6 +129,10 @@ function mapYear(row: YearRow): FeeYear {
     turnover: row.turnover,
     manualAdjust: Number(row.manual_adjust ?? 0),
     basePeriod: row.base_period === "trimestral" ? "trimestral" : "mensal",
+    organizationLevel: row.organization_level == null ? null : Number(row.organization_level),
+    accountingLevel: row.accounting_level == null ? null : Number(row.accounting_level),
+    approvalStatus: row.approval_status === "aprovada" || row.approval_status === "rejeitada" ? row.approval_status : "rascunho",
+    approvedRetainer: row.approved_retainer == null ? null : Number(row.approved_retainer),
   };
 }
 
@@ -301,6 +312,50 @@ export async function listYearChoices(yearId: number): Promise<RetainerChoice[]>
     valueId: row.value_id == null ? null : Number(row.value_id),
     numeric: row.numeric_value,
   }));
+}
+
+export async function getAvencaConfig() {
+  const rows = await sql<{ value: string }>("SELECT value FROM settings WHERE key = 'avenca_config'");
+  return lerConfiguracao(rows[0]?.value);
+}
+
+export async function listQuadro(exercise: number): Promise<LinhaQuadro[]> {
+  const config = await getAvencaConfig();
+  const clients = await listClients("");
+  const linhas: LinhaQuadro[] = [];
+  for (const client of clients) {
+    const atual = await getYear(client.id, exercise);
+    const anterior = await getYear(client.id, exercise - 1);
+    const avencaAnterior = anterior ? displayedMonthly(anterior, await getLines(anterior.id)) : null;
+    linhas.push(
+      montarLinha({
+        clientId: client.id,
+        name: client.name,
+        year: exercise,
+        atual: atual
+          ? {
+              faturacao: atual.turnover,
+              documentos: atual.docCount,
+              organizacao: atual.organizationLevel,
+              contabilizacao: atual.accountingLevel,
+              approvalStatus: atual.approvalStatus,
+              approvedRetainer: atual.approvedRetainer,
+            }
+          : null,
+        anterior: anterior
+          ? {
+              faturacao: anterior.turnover,
+              documentos: anterior.docCount,
+              organizacao: anterior.organizationLevel,
+              contabilizacao: anterior.accountingLevel,
+            }
+          : null,
+        avencaAnterior,
+        config,
+      }),
+    );
+  }
+  return linhas;
 }
 
 export async function getVatRate(): Promise<number> {

@@ -153,9 +153,20 @@ export async function seedIfEmpty(query: Query) {
       doc_medium = 'digital',
       turnover = 40000,
       manual_adjust = 0,
-      base_period = 'mensal'
+      base_period = 'mensal',
+      organization_level = 2,
+      accounting_level = 2
      WHERE id = $1`,
     [y2027],
+  );
+  await query(
+    `UPDATE fee_years SET
+      turnover = 40000,
+      doc_count = 30,
+      organization_level = 2,
+      accounting_level = 2
+     WHERE id = $1`,
+    [y2026],
   );
   await choose(query, y2027, "Organização da documentação", "Organizada", null);
   await choose(query, y2027, "Quantidade de documentos", null, 30);

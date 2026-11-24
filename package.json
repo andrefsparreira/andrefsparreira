@@ -10,7 +10,8 @@
     "seed": "tsx src/scripts/seed.ts",
     "seed:reset": "tsx src/scripts/seed.ts --reset",
     "check:pricing": "tsx src/lib/pricing.check.ts",
-    "prebuild": "tsx src/lib/pricing.check.ts"
+    "check:avencas": "tsx src/lib/avenca-motor.check.ts",
+    "prebuild": "tsx src/lib/pricing.check.ts && tsx src/lib/avenca-motor.check.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.16",

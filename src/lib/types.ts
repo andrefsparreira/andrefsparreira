@@ -82,6 +82,10 @@ export type FeeYear = {
   turnover: number | null;
   manualAdjust: number;
   basePeriod: BasePeriod;
+  organizationLevel: number | null;
+  accountingLevel: number | null;
+  approvalStatus: "rascunho" | "aprovada" | "rejeitada";
+  approvedRetainer: number | null;
 };
 
 export type RetainerSnapshot = {
