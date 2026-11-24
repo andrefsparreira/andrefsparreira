@@ -156,10 +156,27 @@ const EMPTY_PERIODS = (): Record<Periodicity, number> => ({
   one_shot: 0,
 });
 
-export function ruTier(headcount: number) {
+export type RuTier = (typeof RU_TIERS)[number];
+
+export function lerEscaloesRu(raw: string | null | undefined): RuTier[] {
+  if (!raw) return RU_TIERS;
+  try {
+    const parsed = JSON.parse(raw) as { annual?: unknown }[];
+    if (!Array.isArray(parsed) || parsed.length !== RU_TIERS.length) return RU_TIERS;
+    return RU_TIERS.map((tier, index) => {
+      const annual = Number(parsed[index]?.annual);
+      if (!Number.isFinite(annual) || annual < 0) throw new Error("escalão inválido");
+      return { ...tier, annual };
+    });
+  } catch {
+    return RU_TIERS;
+  }
+}
+
+export function ruTier(headcount: number, tiers: readonly RuTier[] = RU_TIERS) {
   if (!Number.isFinite(headcount) || headcount <= 0) return null;
   return (
-    RU_TIERS.find(
+    tiers.find(
       (tier) => headcount >= tier.min && (tier.max == null || headcount <= tier.max),
     ) ?? null
   );
@@ -185,7 +202,7 @@ function place(periodicity: Periodicity, label: string, annualLabel: string): Co
   return cells;
 }
 
-export function computeLine(line: PricedLine): ComputedLine {
+export function computeLine(line: PricedLine, tiers: readonly RuTier[] = RU_TIERS): ComputedLine {
   let periodAmount: number | null = null;
   let sums = false;
   let tierLabel: string | null = null;
@@ -221,10 +238,10 @@ export function computeLine(line: PricedLine): ComputedLine {
         : `${eur(ADMISSION_UNIT)}/ocorrência`;
   } else if (line.pricingRule === "ru_tier") {
     const head = line.quantity ?? 0;
-    const tier = ruTier(head);
+    const tier = ruTier(head, tiers);
     if (!tier) {
       tierLabel = "sem escalão";
-      detail = `Desde ${eur(RU_FROM)}`;
+      detail = `Desde ${eur(tiers[0]?.annual ?? RU_FROM)}`;
     } else {
       tierLabel = tier.label;
       periodAmount = tier.annual;
@@ -265,8 +282,8 @@ export function computeLine(line: PricedLine): ComputedLine {
   };
 }
 
-export function computeSummary(lines: PricedLine[], vatRate = DEFAULT_VAT_RATE): Summary {
-  const computed = lines.map(computeLine);
+export function computeSummary(lines: PricedLine[], vatRate = DEFAULT_VAT_RATE, tiers: readonly RuTier[] = RU_TIERS): Summary {
+  const computed = lines.map((line) => computeLine(line, tiers));
   const correnteByPeriod = EMPTY_PERIODS();
   const opcionalByPeriod = EMPTY_PERIODS();
   let subtotalCorrente = 0;

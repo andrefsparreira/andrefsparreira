@@ -1,5 +1,5 @@
 import { eur } from "@/lib/format";
-import { RU_TIERS, ruTier, type Summary } from "@/lib/pricing";
+import { RU_TIERS, ruTier, type RuTier, type Summary } from "@/lib/pricing";
 
 const PERIODS = [
   { key: "mensal", label: "Mensal × 12" },
@@ -39,14 +39,14 @@ export function CompositionChart({ summary }: { summary: Summary }) {
   );
 }
 
-export function RuChart({ headcount }: { headcount: number | null }) {
-  const active = headcount == null ? null : ruTier(headcount);
-  const max = RU_TIERS[RU_TIERS.length - 1]?.annual ?? 1;
+export function RuChart({ headcount, tiers = RU_TIERS }: { headcount: number | null; tiers?: readonly RuTier[] }) {
+  const active = headcount == null ? null : ruTier(headcount, tiers);
+  const max = tiers[tiers.length - 1]?.annual ?? 1;
   return (
     <figure className="rounded-xl border border-line bg-white p-4">
       <figcaption className="mb-3 font-serif text-lg text-navy">Escalões do Relatório Único</figcaption>
       <div className="space-y-2">
-        {RU_TIERS.map((tier) => {
+        {tiers.map((tier) => {
           const on = active?.label === tier.label;
           return (
             <div key={tier.label} className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-sm">
@@ -65,7 +65,7 @@ export function RuChart({ headcount }: { headcount: number | null }) {
       <p className="mt-3 text-xs text-muted">
         Colaboradores excluindo o sócio-gerente
         {headcount == null ? "." : `: ${headcount}.`}
-        {headcount === 0 ? " Sem escalão aplicável; o modelo indica desde 80,00 €." : ""}
+        {headcount === 0 ? ` Sem escalão aplicável; o modelo indica desde ${eur(tiers[0]?.annual ?? 80)}.` : ""}
       </p>
     </figure>
   );

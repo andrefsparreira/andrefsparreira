@@ -10,7 +10,7 @@ import {
   View,
 } from "@react-pdf/renderer";
 import { eur, pct } from "@/lib/format";
-import { RU_TIERS, type ComputedLine, type Summary } from "@/lib/pricing";
+import { RU_TIERS, type ComputedLine, type RuTier, type Summary } from "@/lib/pricing";
 import { slidesOf } from "@/lib/slides";
 import type { ProposalSection, RetainerSnapshot } from "@/lib/types";
 
@@ -69,16 +69,18 @@ export function ProposalDocument({
   clientLogoSrc,
   ruHeadcount,
   history,
+  ruTiers = RU_TIERS,
 }: {
   clientName: string;
   year: number;
   dateLabel: string;
   sections: ProposalSection[];
   summary: Summary;
-  logoSrc: string;
+  logoSrc: string | null;
   clientLogoSrc: string | null;
   ruHeadcount: number | null;
   history: RetainerSnapshot[];
+  ruTiers?: readonly RuTier[];
 }) {
   const pages = slidesOf(sections).flatMap((section) => {
     if (section.kind === "cover") {
@@ -102,7 +104,7 @@ export function ProposalDocument({
         slide(section.id, section.title, <FeeTable summary={summary} intro={section.intro} />),
       ];
     }
-    return [slide(section.id, section.title, <SectionBody section={section} summary={summary} ruHeadcount={ruHeadcount} />)];
+    return [slide(section.id, section.title, <SectionBody section={section} summary={summary} ruHeadcount={ruHeadcount} ruTiers={ruTiers} />)];
   });
 
   return (
@@ -140,10 +142,10 @@ function HistoryBars({ rows, year }: { rows: RetainerSnapshot[]; year: number })
   );
 }
 
-function Header({ logoSrc }: { logoSrc: string }) {
+function Header({ logoSrc }: { logoSrc: string | null }) {
   return (
     <View fixed style={{ position: "absolute", top: 16, right: 32, height: 20, width: 110, alignItems: "flex-end" }}>
-      <Image src={logoSrc} style={{ height: 18, width: 100, objectFit: "contain" }} />
+      {logoSrc ? <Image src={logoSrc} style={{ height: 18, width: 100, objectFit: "contain" }} /> : null}
     </View>
   );
 }
@@ -156,12 +158,12 @@ function Cover({
 }: {
   section: Extract<ProposalSection, { kind: "cover" }>;
   dateLabel: string;
-  logoSrc: string;
+  logoSrc: string | null;
   clientLogoSrc: string | null;
 }) {
   return (
     <View style={{ height: "100%", paddingTop: 36, paddingBottom: 28, paddingLeft: 42, paddingRight: 28 }}>
-      <Image src={logoSrc} style={{ height: 36, width: 180, objectFit: "contain", alignSelf: "flex-start" }} />
+      {logoSrc ? <Image src={logoSrc} style={{ height: 36, width: 180, objectFit: "contain", alignSelf: "flex-start" }} /> : null}
       <View style={{ flex: 1, flexDirection: "row", alignItems: "center", marginTop: 36 }}>
         <View style={{ flex: 1.15, paddingRight: 28 }}>
           <Text style={styles.kicker}>{section.kicker}</Text>
@@ -181,10 +183,12 @@ function SectionBody({
   section,
   summary,
   ruHeadcount,
+  ruTiers,
 }: {
   section: ProposalSection;
   summary: Summary;
   ruHeadcount: number | null;
+  ruTiers: readonly RuTier[];
 }) {
   if (section.kind === "prose") {
     return (
@@ -227,7 +231,7 @@ function SectionBody({
     return (
       <View>
         <Text style={styles.body}>{section.intro}</Text>
-        <RuBars headcount={ruHeadcount} />
+        <RuBars headcount={ruHeadcount} tiers={ruTiers} />
       </View>
     );
   }
@@ -267,7 +271,7 @@ function euro(amount: number): string {
 
 function periodText(line: ComputedLine): string {
   if (line.pricingRule === "consultation" || line.inclusion === "sob_consulta") return "Sob consulta";
-  if (line.pricingRule === "ru_tier" && line.periodAmount == null) return "Desde 80,00\u00a0€";
+  if (line.pricingRule === "ru_tier" && line.periodAmount == null) return line.detail.replace(" €", "\u00a0€");
   if (line.detail.startsWith("Incluído") && (line.periodAmount == null || line.periodAmount === 0)) return "Incluído";
   if (line.periodAmount == null) return "—";
   return euro(line.periodAmount);
@@ -316,13 +320,13 @@ function FeeTable({ summary, intro }: { summary: Summary; intro: string }) {
   );
 }
 
-function RuBars({ headcount }: { headcount: number | null }) {
-  const max = RU_TIERS[RU_TIERS.length - 1]?.annual ?? 1;
-  const active = RU_TIERS.find((tier) => headcount != null && headcount >= tier.min && (tier.max == null || headcount <= tier.max));
+function RuBars({ headcount, tiers }: { headcount: number | null; tiers: readonly RuTier[] }) {
+  const max = tiers[tiers.length - 1]?.annual || 1;
+  const active = tiers.find((tier) => headcount != null && headcount >= tier.min && (tier.max == null || headcount <= tier.max));
   return (
     <View style={{ marginTop: 10 }}>
       <Text style={styles.h2}>Escalões · colaboradores sem o sócio-gerente: {headcount ?? 0}</Text>
-      {RU_TIERS.map((tier) => (
+      {tiers.map((tier) => (
         <View key={tier.label} style={{ flexDirection: "row", alignItems: "center", marginTop: 4 }}>
           <Text style={{ width: 90, fontSize: 8, color: active?.label === tier.label ? "#8d2f39" : "#1c2430" }}>{tier.label}</Text>
           <View style={{ width: Math.max((tier.annual / max) * 240, 2), height: 8, backgroundColor: active?.label === tier.label ? "#8d2f39" : navy }} />

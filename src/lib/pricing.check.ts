@@ -45,6 +45,7 @@ assert.equal(ruTier(51)?.annual, 350);
 assert.equal(ruTier(99)?.annual, 350);
 assert.equal(ruTier(100)?.annual, 550);
 assert.equal(ruTier(240)?.annual, 550);
+assert.equal(ruTier(3, [{ label: "1 a 5", min: 1, max: 5, annual: 99 }])?.annual, 99);
 
 assert.equal(suggestMonthlyUpdate(150, null).applied, 10);
 assert.equal(suggestMonthlyUpdate(150, 0.05).applied, 10);

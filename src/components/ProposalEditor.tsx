@@ -7,7 +7,7 @@ import { CompositionChart, RuChart } from "@/components/Charts";
 import { HonorariosTable } from "@/components/HonorariosTable";
 import { formatLongDate } from "@/lib/format";
 import { HistorySlide } from "@/components/RetainerHistory";
-import type { Summary } from "@/lib/pricing";
+import { RU_TIERS, type RuTier, type Summary } from "@/lib/pricing";
 import { slidesOf } from "@/lib/slides";
 import type { ProposalSection, RetainerSnapshot } from "@/lib/types";
 
@@ -24,6 +24,7 @@ export function ProposalEditor({
   year,
   history,
   initialEditing,
+  ruTiers = RU_TIERS,
 }: {
   proposalId: number;
   proposalDate: string;
@@ -35,6 +36,7 @@ export function ProposalEditor({
   year: number;
   history: RetainerSnapshot[];
   initialEditing: boolean;
+  ruTiers?: readonly RuTier[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(initialEditing);
@@ -141,6 +143,7 @@ export function ProposalEditor({
                 year={year}
                 dateLabel={formatLongDate(date)}
                 ruHeadcount={ru?.quantity ?? null}
+                ruTiers={ruTiers}
               />
               {section.kind === "cover" ? null : <span className="page-no" />}
             </article>
@@ -284,6 +287,7 @@ function SectionView({
   year,
   dateLabel,
   ruHeadcount,
+  ruTiers,
 }: {
   section: ProposalSection;
   summary: Summary;
@@ -294,6 +298,7 @@ function SectionView({
   year: number;
   dateLabel: string;
   ruHeadcount: number | null;
+  ruTiers: readonly RuTier[];
 }) {
   if (section.kind === "cover") {
     return (
@@ -369,7 +374,7 @@ function SectionView({
       {section.kind === "ru" ? (
         <div className="mt-6 space-y-6">
           <p>{section.intro}</p>
-          <RuChart headcount={ruHeadcount} />
+          <RuChart headcount={ruHeadcount} tiers={ruTiers} />
         </div>
       ) : null}
       {section.kind === "conditions" ? (

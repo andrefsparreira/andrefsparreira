@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite", "pg", "@react-pdf/renderer"],
   outputFileTracingIncludes: {
-    "/*": ["./migrations/**/*"],
+    "/*": ["./migrations/**/*", "./public/brand/**/*"],
   },
   experimental: {
     serverActions: {

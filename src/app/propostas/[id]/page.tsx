@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { resetProposalTexts } from "@/app/actions";
 import { ProposalEditor } from "@/components/ProposalEditor";
 import { computeSummary } from "@/lib/pricing";
-import { getClient, getLines, getProposal, getVatRate, getYear, retainerHistory } from "@/lib/queries";
+import { getClient, getLines, getProposal, getRuTiers, getVatRate, getYear, retainerHistory } from "@/lib/queries";
 import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,8 @@ export default async function ProposalPage({
   if (!client) notFound();
   const year = await getYear(client.id, proposal.year);
   const lines = year ? await getLines(year.id) : [];
-  const summary = computeSummary(lines, await getVatRate());
+  const tiers = await getRuTiers();
+  const summary = computeSummary(lines, await getVatRate(), tiers);
   const history = await retainerHistory(client.id, proposal.year);
 
   return (
@@ -56,6 +57,7 @@ export default async function ProposalPage({
         year={proposal.year}
         history={history}
         initialEditing={sp.editar === "1"}
+        ruTiers={tiers}
       />
     </div>
   );

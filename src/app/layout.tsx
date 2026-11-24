@@ -41,8 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <nav className="flex gap-4 text-sm text-navy">
               <Link href="/" className="hover:underline">Clientes</Link>
               <Link href="/avencas" className="hover:underline">Avaliação</Link>
-              <Link href="/parametros" className="hover:underline">Parâmetros</Link>
-              <Link href="/tabela" className="hover:underline">Tabela de preços</Link>
+              <Link href="/definicoes" className="hover:underline">Definições</Link>
             </nav>
           </div>
           <div className="h-1 bg-navy" />

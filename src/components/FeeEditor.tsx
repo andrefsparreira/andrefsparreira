@@ -6,7 +6,7 @@ import { saveYearLines } from "@/app/actions";
 import { CompositionChart, RuChart } from "@/components/Charts";
 import { HonorariosTable } from "@/components/HonorariosTable";
 import { eur, INCLUSION_LABEL, parseDecimal, PERIOD_LABEL, RULE_LABEL } from "@/lib/format";
-import { ANNUAL_UPDATE_MONTHLY, computeSummary, monthlyRunRate, suggestMonthlyUpdate } from "@/lib/pricing";
+import { ANNUAL_UPDATE_MONTHLY, computeSummary, monthlyRunRate, RU_TIERS, suggestMonthlyUpdate, type RuTier } from "@/lib/pricing";
 import type { FeeLine, Inclusion, LineDraft, Periodicity, ServiceType } from "@/lib/types";
 
 type Draft = LineDraft & { key: string };
@@ -35,12 +35,14 @@ export function FeeEditor({
   types,
   vatRate,
   employees,
+  ruTiers = RU_TIERS,
 }: {
   yearId: number;
   lines: FeeLine[];
   types: ServiceType[];
   vatRate: number;
   employees: number;
+  ruTiers?: readonly RuTier[];
 }) {
   const router = useRouter();
   const [drafts, setDrafts] = useState<Draft[]>(() => lines.map(toDraft));
@@ -50,7 +52,7 @@ export function FeeEditor({
   const [pending, startTransition] = useTransition();
 
   const parsedVat = (parseDecimal(vatPercent) ?? 23) / 100;
-  const summary = useMemo(() => computeSummary(drafts, parsedVat), [drafts, parsedVat]);
+  const summary = useMemo(() => computeSummary(drafts, parsedVat, ruTiers), [drafts, parsedVat, ruTiers]);
   const monthly = monthlyRunRate(summary);
   const ipcRate = ipc.trim() === "" ? null : (parseDecimal(ipc) ?? 0) / 100;
   const update = suggestMonthlyUpdate(monthly, ipcRate);
@@ -278,7 +280,7 @@ export function FeeEditor({
         </div>
         <div className="space-y-4">
           <CompositionChart summary={summary} />
-          <RuChart headcount={ruLine?.quantity ?? null} />
+          <RuChart headcount={ruLine?.quantity ?? null} tiers={ruTiers} />
           <div className="rounded-xl border border-line bg-card p-4 text-sm">
             <h3 className="font-serif text-lg text-navy">Atualização anual</h3>
             <p className="mt-1 text-muted">

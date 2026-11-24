@@ -7,7 +7,7 @@ import { calcularRevisaoAvenca, type ConfiguracaoAvencas, type DadosAnuais } fro
 import { sql, withTransaction, type Query } from "@/lib/db";
 import { modeloLinhas } from "@/lib/example";
 import { parseDecimal, todayISO } from "@/lib/format";
-import { computeBaseRetainer, historyWindow } from "@/lib/pricing";
+import { computeBaseRetainer, historyWindow, RU_TIERS } from "@/lib/pricing";
 import { displayedMonthly, ensureFeeYears, getAvencaConfig, getClient, getLines, getYear, listRetainerCatalog } from "@/lib/queries";
 import { insertDrafts } from "@/lib/seed";
 import { buildProposalSections } from "@/lib/template";
@@ -284,7 +284,7 @@ export async function loadModelLines(formData: FormData) {
 export async function saveServiceType(formData: FormData) {
   await gate();
   const label = text(formData, "label");
-  if (!label) redirect("/tabela?erro=tipo");
+  if (!label) redirect("/definicoes?erro=tipo");
   const codeInput = text(formData, "code");
   const code = codeInput || slug(label);
   const periodicity = text(formData, "periodicity");
@@ -319,15 +319,15 @@ export async function saveServiceType(formData: FormData) {
       existing[0] ? Number(existing[0].sort_order) : sort,
     ],
   );
-  revalidatePath("/tabela");
-  redirect("/tabela?ok=tipo");
+  revalidatePath("/definicoes");
+  redirect("/definicoes?ok=tipo");
 }
 
 export async function deactivateServiceType(formData: FormData) {
   await gate();
   await sql("UPDATE service_types SET active = 0 WHERE code = $1", [text(formData, "code")]);
-  revalidatePath("/tabela");
-  redirect("/tabela");
+  revalidatePath("/definicoes");
+  redirect("/definicoes");
 }
 
 export async function openProposal(formData: FormData) {
@@ -539,8 +539,7 @@ export async function saveRetainerCatalog(input: {
     const detail = error instanceof Error ? error.message : "Erro ao gravar.";
     return { ok: false, error: detail };
   }
-  revalidatePath("/tabela");
-  revalidatePath("/parametros");
+  revalidatePath("/definicoes");
   revalidatePath("/");
   return { ok: true };
 }
@@ -719,10 +718,29 @@ export async function saveAvencaConfig(input: ConfiguracaoAvencas): Promise<{ ok
      ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
     [JSON.stringify(config)],
   );
-  revalidatePath("/parametros");
+  revalidatePath("/definicoes");
   revalidatePath("/avencas");
   revalidatePath("/");
   return { ok: true };
+}
+
+export async function saveRuTiers(formData: FormData) {
+  await gate();
+  const tiers = RU_TIERS.map((tier, index) => {
+    const annual = parseDecimal(String(formData.get(`annual_${index}`) ?? ""));
+    if (annual == null || annual < 0) return null;
+    return { ...tier, annual };
+  });
+  if (tiers.some((tier) => tier == null)) redirect("/definicoes?erro=ru");
+  await sql(
+    `INSERT INTO settings (key, value) VALUES ('ru_tiers', $1)
+     ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
+    [JSON.stringify(tiers)],
+  );
+  revalidatePath("/definicoes");
+  revalidatePath("/");
+  revalidatePath("/propostas", "layout");
+  redirect("/definicoes?ok=ru");
 }
 
 export async function saveRetainerHistory(input: {

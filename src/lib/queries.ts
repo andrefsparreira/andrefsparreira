@@ -1,4 +1,5 @@
 import { lerConfiguracao } from "./avenca-config";
+import { lerEscaloesRu } from "./pricing";
 import { montarLinha, type LinhaQuadro } from "./avenca-quadro";
 import { sql } from "./db";
 import { computeSummary, DEFAULT_VAT_RATE, historyWindow, monthlyRunRate } from "./pricing";
@@ -317,6 +318,11 @@ export async function listYearChoices(yearId: number): Promise<RetainerChoice[]>
 export async function getAvencaConfig() {
   const rows = await sql<{ value: string }>("SELECT value FROM settings WHERE key = 'avenca_config'");
   return lerConfiguracao(rows[0]?.value);
+}
+
+export async function getRuTiers() {
+  const rows = await sql<{ value: string }>("SELECT value FROM settings WHERE key = 'ru_tiers'");
+  return lerEscaloesRu(rows[0]?.value);
 }
 
 export async function listQuadro(exercise: number): Promise<LinhaQuadro[]> {

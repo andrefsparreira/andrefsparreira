@@ -7,7 +7,7 @@ import { FeeEditor } from "@/components/FeeEditor";
 import { RetainerHistory } from "@/components/RetainerHistory";
 import { eur, formatDatePT } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
-import { displayedMonthly, findProposal, getAvencaConfig, getClient, getLines, getVatRate, getYear, listTypes, listYears, retainerHistory } from "@/lib/queries";
+import { displayedMonthly, findProposal, getAvencaConfig, getClient, getLines, getRuTiers, getVatRate, getYear, listTypes, listYears, retainerHistory } from "@/lib/queries";
 import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,8 @@ export default async function ClientPage({
   const lines = year ? await getLines(year.id) : [];
   const types = await listTypes();
   const vatRate = await getVatRate();
-  const summary = computeSummary(lines, vatRate);
+  const tiers = await getRuTiers();
+  const summary = computeSummary(lines, vatRate, tiers);
   const proposal = year ? await findProposal(client.id, year.year) : null;
   const separador = sp.sep === "avaliacao" || sp.sep === "honorarios" ? sp.sep : "ficha";
   const anterior = year ? await getYear(client.id, year.year - 1) : null;
@@ -178,6 +179,7 @@ export default async function ClientPage({
               types={types}
               vatRate={vatRate}
               employees={client.employeesExManager}
+              ruTiers={tiers}
             />
           </>
         ) : null}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { eur } from "@/lib/format";
 import { computeSummary } from "@/lib/pricing";
-import { getLines, getVatRate, getYear, listClients } from "@/lib/queries";
+import { getLines, getRuTiers, getVatRate, getYear, listClients } from "@/lib/queries";
 import { requireViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +15,11 @@ export default async function HomePage({
   const { q = "" } = await searchParams;
   const clients = await listClients(q);
   const vat = await getVatRate();
+  const tiers = await getRuTiers();
   const rows = await Promise.all(
     clients.map(async (client) => {
       const year = await getYear(client.id, 2027);
-      const summary = computeSummary(year ? await getLines(year.id) : [], vat);
+      const summary = computeSummary(year ? await getLines(year.id) : [], vat, tiers);
       return { client, year, summary };
     }),
   );
