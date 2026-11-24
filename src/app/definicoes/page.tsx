@@ -1,4 +1,4 @@
-import { deactivateServiceType, saveRuTiers, saveServiceType } from "@/app/actions";
+import { activateServiceType, deactivateServiceType, moveServiceType, saveRuTiers, saveServiceType } from "@/app/actions";
 import { ConfiguracaoAvencasForm } from "@/components/ConfiguracaoAvencasForm";
 import { INCLUSION_LABEL, PERIOD_LABEL, RULE_LABEL } from "@/lib/format";
 import { RU_TIERS } from "@/lib/pricing";
@@ -29,6 +29,7 @@ export default async function SettingsPage({
           Parâmetros da avença, escalões do Relatório Único e tipos de linha. As linhas já lançadas guardam a regra que tinham no momento.
         </p>
         {sp.ok === "tipo" ? <p className="mt-2 text-sm text-navy">Tipo de serviço guardado.</p> : null}
+        {sp.ok === "ativo" ? <p className="mt-2 text-sm text-navy">Tipo ativado. Fica no fim da lista e pode subir.</p> : null}
         {sp.erro === "tipo" ? <p className="mt-2 text-sm text-[#8d2f39]">Indique o nome do tipo.</p> : null}
         {sp.ok === "ru" ? <p className="mt-2 text-sm text-navy">Escalões do Relatório Único guardados.</p> : null}
         {sp.erro === "ru" ? <p className="mt-2 text-sm text-[#8d2f39]">Cada escalão precisa de um valor zero ou positivo.</p> : null}
@@ -66,9 +67,11 @@ export default async function SettingsPage({
 
       <section className="space-y-4">
         <h2 className="font-serif text-2xl text-navy">Tipos de linha</h2>
+        <p className="text-sm text-muted">A ordem desta lista é a ordem dos tipos na ficha do cliente.</p>
         <div className="space-y-3">
-          {types.filter((type) => type.active).map((type) => (
-            <form key={type.code} action={saveServiceType} className="grid items-end gap-3 rounded-xl border border-line bg-white p-3 md:grid-cols-6">
+          {types.filter((type) => type.active).map((type, index, active) => (
+            <div key={type.code} className="rounded-xl border border-line bg-white">
+            <form action={saveServiceType} className="grid items-end gap-3 p-3 md:grid-cols-6">
               <input type="hidden" name="code" value={type.code} />
               <label className="text-sm md:col-span-2">
                 Tipo
@@ -103,16 +106,37 @@ export default async function SettingsPage({
                 <button className="rounded-md bg-navy px-3 py-1.5 text-sm text-white">Guardar</button>
               </div>
             </form>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line px-3 py-2">
+              <form action={moveServiceType}>
+                <input type="hidden" name="code" value={type.code} />
+                <input type="hidden" name="direction" value="up" />
+                <button className="text-xs text-navy disabled:text-muted" disabled={index === 0}>Subir</button>
+              </form>
+              <form action={moveServiceType}>
+                <input type="hidden" name="code" value={type.code} />
+                <input type="hidden" name="direction" value="down" />
+                <button className="text-xs text-navy disabled:text-muted" disabled={index === active.length - 1}>Descer</button>
+              </form>
+              <form action={deactivateServiceType}>
+                <input type="hidden" name="code" value={type.code} />
+                <button className="text-xs text-[#8d2f39]">Desativar</button>
+              </form>
+            </div>
+            </div>
           ))}
         </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          {types.filter((type) => type.active).map((type) => (
-            <form key={`${type.code}-remove`} action={deactivateServiceType}>
-              <input type="hidden" name="code" value={type.code} />
-              <button className="text-xs text-[#8d2f39]">Desativar {type.label}</button>
-            </form>
-          ))}
-        </div>
+        {types.some((type) => !type.active) ? (
+          <div className="space-y-2">
+            <h3 className="font-serif text-xl text-navy">Tipos desativados</h3>
+            {types.filter((type) => !type.active).map((type) => (
+              <form key={`${type.code}-on`} action={activateServiceType} className="flex items-center justify-between rounded-xl border border-line bg-white px-3 py-2">
+                <input type="hidden" name="code" value={type.code} />
+                <span className="text-sm">{type.label}</span>
+                <button className="text-sm text-navy">Ativar</button>
+              </form>
+            ))}
+          </div>
+        ) : null}
 
         <form action={saveServiceType} className="grid gap-3 rounded-xl border border-line bg-card p-4 md:grid-cols-3">
           <h3 className="font-serif text-xl text-navy md:col-span-3">Novo tipo</h3>

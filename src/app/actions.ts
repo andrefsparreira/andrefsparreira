@@ -327,6 +327,44 @@ export async function deactivateServiceType(formData: FormData) {
   await gate();
   await sql("UPDATE service_types SET active = 0 WHERE code = $1", [text(formData, "code")]);
   revalidatePath("/definicoes");
+  revalidatePath("/clientes", "layout");
+  redirect("/definicoes");
+}
+
+export async function activateServiceType(formData: FormData) {
+  await gate();
+  const maxRows = await sql<{ n: number }>(
+    "SELECT COALESCE(MAX(sort_order), 0)::int AS n FROM service_types WHERE active = 1",
+  );
+  await sql("UPDATE service_types SET active = 1, sort_order = $2 WHERE code = $1", [
+    text(formData, "code"),
+    Number(maxRows[0]?.n ?? 0) + 10,
+  ]);
+  revalidatePath("/definicoes");
+  revalidatePath("/clientes", "layout");
+  redirect("/definicoes?ok=ativo");
+}
+
+export async function moveServiceType(formData: FormData) {
+  await gate();
+  const code = text(formData, "code");
+  const direction = text(formData, "direction") === "up" ? -1 : 1;
+  const rows = await sql<{ code: string }>(
+    "SELECT code FROM service_types WHERE active = 1 ORDER BY sort_order, label",
+  );
+  const index = rows.findIndex((row) => row.code === code);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= rows.length) redirect("/definicoes");
+  const order = rows.map((row) => row.code);
+  const moved = order.splice(index, 1)[0];
+  if (moved) order.splice(target, 0, moved);
+  await withTransaction(async (query) => {
+    for (const [position, item] of order.entries()) {
+      await query("UPDATE service_types SET sort_order = $1 WHERE code = $2", [(position + 1) * 10, item]);
+    }
+  });
+  revalidatePath("/definicoes");
+  revalidatePath("/clientes", "layout");
   redirect("/definicoes");
 }
 
