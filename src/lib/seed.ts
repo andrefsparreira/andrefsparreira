@@ -78,13 +78,16 @@ export async function seedIfEmpty(query: Query) {
   const count = await query<{ n: number }>("SELECT COUNT(*)::int AS n FROM clients");
   if (Number(count[0]?.n ?? 0) > 0) return;
 
-  await query("INSERT INTO settings (key, value) VALUES ('vat_rate', $1)", [String(DEFAULT_VAT_RATE)]);
+  await query("INSERT INTO settings (key, value) VALUES ('vat_rate', $1) ON CONFLICT (key) DO NOTHING", [
+    String(DEFAULT_VAT_RATE),
+  ]);
   for (const type of SERVICE_TYPES) {
     await query(
       `INSERT INTO service_types (
         code, label, default_periodicity, pricing_rule, default_inclusion,
         default_optional, default_unit_value, sort_order, active
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1)
+      ON CONFLICT (code) DO NOTHING`,
       [
         type.code,
         type.label,

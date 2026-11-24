@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { PGlite } from "@electric-sql/pglite";
+import type { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
 import { ensureRetainerCatalog, seedIfEmpty } from "./seed";
 
@@ -25,22 +25,68 @@ async function raw<T extends Record<string, unknown>>(text: string, params: unkn
   return result.rows;
 }
 
+async function migrationFiles(): Promise<string[]> {
+  const dir = path.join(process.cwd(), "migrations");
+  return (await readdir(dir).catch(() => [] as string[])).filter((file) => file.endsWith(".sql")).sort();
+}
+
+async function applyPostgresMigrations(client: pg.Client) {
+  await client.query("set lock_timeout = '60s'");
+  await client.query("select pg_advisory_lock(7272741)");
+  await client.query(
+    "create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())",
+  );
+  const done = new Set((await client.query("select name from schema_migrations")).rows.map((row) => String(row.name)));
+  const dir = path.join(process.cwd(), "migrations");
+  for (const file of (await migrationFiles()).filter((name) => !done.has(name))) {
+    await client.query("begin");
+    try {
+      await client.query(await readFile(path.join(dir, file), "utf8"));
+      await client.query("insert into schema_migrations (name) values ($1)", [file]);
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
+  }
+}
+
 async function init() {
   if (databaseUrl === "") {
-    const db = new PGlite();
+    const { PGlite: LocalDatabase } = await import("@electric-sql/pglite");
+    const db = new LocalDatabase();
     const dir = path.join(process.cwd(), "migrations");
-    const files = (await readdir(dir).catch(() => [] as string[])).filter((file) => file.endsWith(".sql")).sort();
-    for (const file of files) {
+    for (const file of await migrationFiles()) {
       await db.exec(await readFile(path.join(dir, file), "utf8"));
     }
     local = db;
+    await ensureRetainerCatalog(raw);
+    await seedIfEmpty(raw);
+    return;
   }
-  await ensureRetainerCatalog(raw);
-  await seedIfEmpty(raw);
+
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL_UNPOOLED?.trim() || databaseUrl });
+  await client.connect();
+  const query = (async (text, params = []) => (await client.query(text, params)).rows) as Query;
+  try {
+    await applyPostgresMigrations(client);
+    await client.query("begin");
+    await ensureRetainerCatalog(query);
+    await seedIfEmpty(query);
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback").catch(() => undefined);
+    throw error;
+  } finally {
+    await client.end();
+  }
 }
 
 export function ready(): Promise<void> {
-  starting ??= init();
+  starting ??= init().catch((error: unknown) => {
+    starting = undefined;
+    throw error;
+  });
   return starting;
 }
 

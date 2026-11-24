@@ -2,6 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite", "pg", "@react-pdf/renderer"],
+  outputFileTracingIncludes: {
+    "/*": ["./migrations/**/*"],
+  },
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["*.apps.grok.bot"],
+    },
+  },
   webpack: (config) => {
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
